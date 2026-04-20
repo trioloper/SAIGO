@@ -1,0 +1,118 @@
+[
+  {
+    "category": "Förrätter",
+    "items": [
+      { "id": 1, "name": "Sate 1ST", "image": "/menu/01.jpg" },
+      { "id": 2, "name": "Tempura Shrimp 2ST", "image": "/menu/02.jpg" },
+      { "id": 3, "name": "Chicken Strips 2ST", "image": "/menu/03.jpg" },
+      { "id": 4, "name": "Vårrullar Kyckling", "image": "/menu/04.jpg" },
+      { "id": 5, "name": "Vårrullar Vegetariska", "image": "/menu/05.jpg" },
+      { "id": 6, "name": "Edamame", "image": "/menu/06.jpg" },
+      { "id": 7, "name": "Goma Edamame", "image": "/menu/07.jpg" },
+      { "id": 8, "name": "Spicy Edamame", "image": "/menu/08.jpg" },
+      { "id": 9, "name": "Wakame Salad", "image": "/menu/09.jpg" },
+      { "id": 10, "name": "Mini Buritto Lax", "image": "/menu/10.jpg" },
+      { "id": 11, "name": "Mini Buritto Chicken", "image": "/menu/11.jpg" },
+      { "id": 12, "name": "Misosoppa", "image": "/menu/12.jpg" },
+      { "id": 13, "name": "Misosoppa Lax", "image": "/menu/13.jpg" },
+      { "id": 14, "name": "Misosoppa Tofu", "image": "/menu/14.jpg" },
+      { "id": 15, "name": "Mini Bowl Lax", "image": "/menu/15.jpg" },
+      { "id": 16, "name": "Mini Bowl Chicken", "image": "/menu/16.jpg" },
+      { "id": 17, "name": "Mini Bowl Tofu", "image": "/menu/17.jpg" }
+    ]
+  },
+  {
+    "category": "FÄRSKA RULLAR 6 ST",
+    "items": [
+      { "id": 18, "name": "Lax", "image": "/menu/18.jpg" },
+      { "id": 19, "name": "Räkor", "image": "/menu/19.jpg" },
+      { "id": 20, "name": "Teriyaki Kyckling", "image": "/menu/20.jpg" },
+      { "id": 21, "name": "Veggie", "image": "/menu/21.jpg" }
+    ]
+  },
+  {
+    "category": "URA MAKI 4 ST",
+    "items": [
+      { "id": 22, "name": "Alaska Roll", "image": "/menu/22.jpg" },
+      { "id": 23, "name": "Avocado Kappa Roll", "image": "/menu/23.jpg" },
+      { "id": 24, "name": "California Roll", "image": "/menu/24.jpg" },
+      { "id": 25, "name": "Tekka Roll", "image": "/menu/25.jpg" },
+      { "id": 26, "name": "Crispy Chicken Roll", "image": "/menu/26.jpg" },
+      { "id": 27, "name": "Ebi Roll", "image": "/menu/27.jpg" },
+      { "id": 28, "name": "Fried Ebi Roll", "image": "/menu/28.jpg" },
+      { "id": 29, "name": "Philadelphia Roll", "image": "/menu/29.jpg" }
+    ]
+  },
+  {
+    "category": "MAKI 6 ST",
+    "items": [
+      { "id": 30, "name": "Maki Avocado", "image": "/menu/30.jpg" },
+      { "id": 31, "name": "Maki Chicken", "image": "/menu/31.jpg" },
+      { "id": 32, "name": "Maki Ebi", "image": "/menu/32.jpg" },
+      { "id": 33, "name": "Maki Kappa", "image": "/menu/33.jpg" },
+      { "id": 34, "name": "Maki Shake", "image": "/menu/34.jpg" },
+      { "id": 35, "name": "Maki Shake Avocado", "image": "/menu/35.jpg" },
+      { "id": 36, "name": "Maki Surimi", "image": "/menu/36.jpg" },
+      { "id": 37, "name": "Maki Tamago", "image": "/menu/37.jpg" },
+      { "id": 38, "name": "Maki Maguro", "image": "/menu/38.jpg" }
+    ]
+  },
+  {
+    "category": "NIGIRI 1 ST",
+    "items": [
+      { "id": 39, "name": "Nigiri Avocado", "image": "/menu/39.jpg" },
+      { "id": 40, "name": "Nigiri Ebi", "image": "/menu/40.jpg" },
+      { "id": 41, "name": "Nigiri Inari", "image": "/menu/41.jpg" },
+      { "id": 42, "name": "Nigiri Shake", "image": "/menu/42.jpg" },
+      { "id": 43, "name": "Nigiri Shake Flambé", "image": "/menu/43.jpg" },
+      { "id": 44, "name": "Nigiri Spicy Tuna", "image": "/menu/44.jpg" },
+      { "id": 45, "name": "Nigiri Tamago", "image": "/menu/45.jpg" },
+      { "id": 46, "name": "Nigiri Maguro", "image": "/menu/46.jpg" },
+      { "id": 47, "name": "Nigiri Surimi", "image": "/menu/47.jpg" }
+    ]
+  },
+  {
+    "category": "SAIGO ROLLS 7 ST",
+    "items": [
+      { "id": 48, "name": "Saigo Chicken", "image": "/menu/48.jpg" },
+      { "id": 49, "name": "Saigo Chili Cheese", "image": "/menu/49.jpg" },
+      { "id": 50, "name": "Saigo Salmon Roll", "image": "/menu/50.jpg" },
+      { "id": 51, "name": "Saigo Shrimp Roll", "image": "/menu/51.jpg" },
+      { "id": 52, "name": "Saigo Tuna Roll", "image": "/menu/52.jpg" },
+      { "id": 53, "name": "Saigo Vegetarian Roll", "image": "/menu/53.jpg" }
+    ]
+  },
+  {
+    "category": "DELUXE ROLLS 8 ST",
+    "items": [
+      { "id": 54, "name": "Spicy Tuna", "image": "/menu/54.jpg" },
+      { "id": 55, "name": "Spicy Salmon", "image": "/menu/55.jpg" },
+      { "id": 56, "name": "Chicken Deluxe", "image": "/menu/56.jpg" },
+      { "id": 57, "name": "Tempura Deluxe", "image": "/menu/57.jpg" },
+      { "id": 58, "name": "Tempura Royale", "image": "/menu/58.jpg" }
+    ]
+  },
+  {
+    "category": "SASHIMI",
+    "items": [
+      { "id": 59, "name": "Lax", "image": "/menu/59.jpg", "price": 99 },
+      { "id": 60, "name": "Tonfisk", "image": "/menu/60.jpg", "price": 99 }
+    ]
+  },
+  {
+    "category": "SASHIMI DELUXE 4 ST",
+    "items": [
+      { "id": 61, "name": "Lax", "image": "/menu/61.jpg", "price": 129 },
+      { "id": 62, "name": "Tonfisk", "image": "/menu/62.jpg", "price": 129 }
+    ]
+  },
+  {
+    "category": "TILLBEHÖR",
+    "items": [
+      { "id": 63, "name": "Ingefära", "image": "/menu/63.jpg" },
+      { "id": 64, "name": "Wasabi", "image": "/menu/64.jpg" },
+      { "id": 65, "name": "Chili Mayo", "image": "/menu/65.jpg" },
+      { "id": 66, "name": "Wasabi Mayo", "image": "/menu/66.jpg" }
+    ]
+  }
+]
