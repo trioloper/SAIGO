@@ -16,9 +16,10 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'POST') {
+      // Normalise action to lowercase for comparison
       const action = String(
         req.query.action || req.body?.action || '',
-      ).toLowerCase();
+      ).toLowerCase().trim();
       const body = req.body ?? {};
 
       // validate inputs for actions targeting an existing order
@@ -35,7 +36,34 @@ export default async function handler(req, res) {
         }
       }
 
-      // NEW: delete
+      // ── Toggle individual item finished state ──────────────────────────────
+      // Matches ?action=toggleItemFinished  (case-insensitive)
+      if (action === 'toggleitemfinished') {
+        const { orderId, itemIndex } = body;
+        if (!orderId || String(orderId).trim().length === 0) {
+          return res
+            .status(400)
+            .json({ success: false, message: 'orderId is required' });
+        }
+        const idx = Number(itemIndex);
+        if (!Number.isFinite(idx) || idx < 0) {
+          return res
+            .status(400)
+            .json({ success: false, message: 'Valid itemIndex is required' });
+        }
+        const upstream = await fetchWithTimeout(
+          `${BASE}/api/orders/toggleItemFinished`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderId, itemIndex: idx }),
+          },
+        );
+        const data = await upstream.json().catch(() => ({}));
+        return res.status(upstream.status).json(data);
+      }
+
+      // ── Delete ─────────────────────────────────────────────────────────────
       if (action === 'delete') {
         const { orderId } = body || {};
         if (!orderId || String(orderId).trim().length === 0) {
@@ -49,10 +77,10 @@ export default async function handler(req, res) {
         return res.status(upstream.status).json(data);
       }
 
-      // Route to correct upstream endpoint
-      let endpoint = `${BASE}/api/orders`; // default upsert
+      // ── Route to correct upstream endpoint ─────────────────────────────────
+      let endpoint = `${BASE}/api/orders`; // default: upsert / create
       if (action === 'completed') endpoint = `${BASE}/api/orders/complete`;
-      if (action === 'reopen') endpoint = `${BASE}/api/orders/reopen`;
+      if (action === 'reopen')    endpoint = `${BASE}/api/orders/reopen`;
 
       const upstream = await fetchWithTimeout(endpoint, {
         method: 'POST',

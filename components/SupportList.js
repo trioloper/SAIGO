@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, useMemo } from 'react';
-import { RotateCcw } from 'lucide-react';
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+import { RotateCcw, Check, ChefHat, Clock } from 'lucide-react';
 import OrderSlideSwitch from './OrderSlideSwitch';
 import menuData from '../data/menu.json';
 
@@ -46,12 +46,303 @@ function groupByCategory(items, lookup) {
   return groups;
 }
 
+// ─── Double-tap / double-click hook ──────────────────────────────────────────
+// Returns a handler that fires `onDoubleActivate` on:
+//   • Desktop: double-click (native dblclick)
+//   • Mobile : two taps within 350 ms on the same target
+function useDoubleActivate(onDoubleActivate) {
+  const lastTap = useRef(0);
+
+  const handleClick = useCallback((e) => {
+    // Desktop: native dblclick fires separately; single click does nothing
+  }, []);
+
+  const handleDoubleClick = useCallback(
+    (e) => {
+      e.preventDefault();
+      onDoubleActivate(e);
+    },
+    [onDoubleActivate],
+  );
+
+  const handleTouchEnd = useCallback(
+    (e) => {
+      const now = Date.now();
+      if (now - lastTap.current < 350) {
+        e.preventDefault();
+        onDoubleActivate(e);
+        lastTap.current = 0;
+      } else {
+        lastTap.current = now;
+      }
+    },
+    [onDoubleActivate],
+  );
+
+  return {
+    onClick: handleClick,
+    onDoubleClick: handleDoubleClick,
+    onTouchEnd: handleTouchEnd,
+  };
+}
+
+// ─── Single item card ─────────────────────────────────────────────────────────
+function ItemCard({ item, globalIndex, orderId, isUpdating, onToggle }) {
+  const [ripple, setRipple] = useState(false);
+  const isFinished = item.finished || false;
+
+  const triggerToggle = useCallback(() => {
+    if (isUpdating) return;
+    setRipple(true);
+    setTimeout(() => setRipple(false), 400);
+    onToggle(orderId, globalIndex);
+  }, [isUpdating, onToggle, orderId, globalIndex]);
+
+  const handlers = useDoubleActivate(triggerToggle);
+
+  return (
+    <div
+      {...handlers}
+      role="button"
+      tabIndex={0}
+      aria-label={`${item.name} — ${isFinished ? "done, double-click to undo" : "double-click to mark done"}`}
+      onKeyDown={(e) => {
+        // Space or Enter = toggle (keyboard accessibility)
+        if (e.key === " " || e.key === "Enter") {
+          e.preventDefault();
+          triggerToggle();
+        }
+      }}
+      className="relative w-full flex items-center gap-2.5 rounded-xl px-3 py-2 select-none cursor-pointer overflow-hidden transition-all duration-200"
+      style={{
+        background: isFinished
+          ? "rgba(34, 197, 94, 0.12)"
+          : "rgba(255, 255, 255, 0.07)",
+        border: isFinished
+          ? "1.5px solid rgba(34, 197, 94, 0.35)"
+          : "1.5px solid rgba(255,255,255,0.1)",
+        opacity: isUpdating ? 0.6 : 1,
+        transform: ripple ? "scale(0.97)" : "scale(1)",
+        boxShadow: isFinished ? "0 0 12px rgba(34, 197, 94, 0.08)" : "none",
+      }}
+      title={
+        isFinished ? "Double-click to undo" : "Double-click to mark as done"
+      }
+    >
+      {/* Ripple overlay */}
+      {ripple && (
+        <span
+          className="absolute inset-0 rounded-xl animate-ping"
+          style={{
+            background: isFinished
+              ? "rgba(239,68,68,0.15)"
+              : "rgba(34,197,94,0.2)",
+            animationDuration: "0.35s",
+            animationIterationCount: 1,
+          }}
+        />
+      )}
+
+      {/* Check circle */}
+      <div
+        className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center transition-all duration-300"
+        style={{
+          background: isFinished
+            ? "rgba(34,197,94,0.25)"
+            : "rgba(255,255,255,0.08)",
+          border: isFinished
+            ? "2px solid rgba(34,197,94,0.7)"
+            : "2px solid rgba(255,255,255,0.2)",
+        }}
+      >
+        {isUpdating ? (
+          <div className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+        ) : isFinished ? (
+          <Check className="w-3.5 h-3.5 text-green-300" strokeWidth={3} />
+        ) : null}
+      </div>
+
+      {/* Thumbnail */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={item.image}
+        alt={item.name}
+        className="w-8 h-8 rounded-lg object-cover flex-shrink-0 transition-all duration-300"
+        style={{
+          opacity: isFinished ? 0.45 : 1,
+          filter: isFinished ? "grayscale(60%)" : "none",
+        }}
+        onError={(e) => {
+          e.currentTarget.src = "/menu/default.jpg";
+        }}
+      />
+
+      {/* Name */}
+      <span
+        className="text-xs font-semibold truncate flex-1 text-left transition-all duration-200"
+        style={{
+          color: isFinished ? "rgba(255,255,255,0.38)" : "white",
+          textDecoration: isFinished ? "line-through" : "none",
+        }}
+      >
+        {item.name}
+      </span>
+
+      {/* Qty badge */}
+      <span
+        className="text-[11px] font-bold flex-shrink-0 px-1.5 py-0.5 rounded-md"
+        style={{
+          background: isFinished
+            ? "rgba(255,255,255,0.05)"
+            : "rgba(251,191,36,0.15)",
+          color: isFinished
+            ? "rgba(255,255,255,0.25)"
+            : "rgba(251,191,36,0.95)",
+          border: isFinished
+            ? "1px solid rgba(255,255,255,0.08)"
+            : "1px solid rgba(251,191,36,0.25)",
+        }}
+      >
+        ×{item.qty}
+      </span>
+
+      {/* Double-click hint — only shown on unfinished, non-touch hint */}
+      {/* {!isFinished && (
+        <span className="hidden sm:block text-[9px] text-white/20 flex-shrink-0 italic">
+          dbl-click
+        </span>
+      )} */}
+    </div>
+  );
+}
+
+// ─── Category card ────────────────────────────────────────────────────────────
+function CategoryCard({
+  category,
+  items,
+  orderId,
+  updatingItem,
+  onToggle,
+  onMarkAllDone,
+}) {
+  const total = items.length;
+  const finished = items.filter((it) => it.finished).length;
+  const allDone = finished === total;
+  const pct = Math.round((finished / total) * 100);
+
+  return (
+    <div
+      className="rounded-2xl border p-3 min-w-[160px] transition-all duration-300"
+      style={{
+        background: allDone ? "rgba(34,197,94,0.07)" : "rgba(0,0,0,0.25)",
+        borderColor: allDone ? "rgba(34,197,94,0.25)" : "rgba(255,255,255,0.1)",
+      }}
+    >
+      {/* Category header */}
+      <div className="mb-2.5 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <ChefHat
+            className="w-3 h-3 flex-shrink-0"
+            style={{
+              color: allDone ? "rgba(134,239,172,0.8)" : "rgba(251,191,36,0.7)",
+            }}
+          />
+          <span
+            className="text-[10px] font-bold uppercase tracking-wider truncate"
+            style={{
+              color: allDone ? "rgba(134,239,172,0.9)" : "rgba(251,191,36,0.9)",
+            }}
+          >
+            {category}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {/* Progress fraction */}
+          <span
+            className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+            style={{
+              background: allDone
+                ? "rgba(34,197,94,0.2)"
+                : "rgba(251,191,36,0.15)",
+              color: allDone
+                ? "rgba(134,239,172,0.95)"
+                : "rgba(252,211,77,0.9)",
+            }}
+          >
+            {finished}/{total}
+          </span>
+
+          {/* Mark all done button */}
+          {!allDone && (
+            <button
+              onClick={() => onMarkAllDone(items)}
+              className="text-[9px] px-1.5 py-0.5 rounded-full border transition-all hover:scale-105 active:scale-95"
+              style={{
+                background: "rgba(251,191,36,0.1)",
+                borderColor: "rgba(251,191,36,0.25)",
+                color: "rgba(252,211,77,0.8)",
+              }}
+              title={`Mark all ${category} items as done`}
+            >
+              All done
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      <div className="mb-2.5 h-1 rounded-full bg-white/10 overflow-hidden">
+        <div
+          className="h-full rounded-full transition-all duration-500"
+          style={{
+            width: `${pct}%`,
+            background: allDone
+              ? "rgba(34,197,94,0.7)"
+              : "rgba(251,191,36,0.6)",
+          }}
+        />
+      </div>
+
+      {/* Items */}
+      <div className="space-y-1.5">
+        {items.map((it, localIdx) => {
+          const isUpdating =
+            updatingItem?.orderId === orderId &&
+            updatingItem?.itemIndex === it._globalIndex;
+
+          return (
+            <ItemCard
+              key={localIdx}
+              item={it}
+              globalIndex={it._globalIndex}
+              orderId={orderId}
+              isUpdating={isUpdating}
+              onToggle={onToggle}
+            />
+          );
+        })}
+      </div>
+
+      {/* All done stamp */}
+      {allDone && (
+        <div className="mt-2 flex items-center justify-center gap-1 text-green-300 text-[10px] font-bold">
+          <Check className="w-3 h-3" />
+          Ready to serve
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
 export default function SupportList() {
   const [orders, setOrders] = useState([]);
   const [loadingList, setLoadingList] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [secondsLeft, setSecondsLeft] = useState(10);
   const [deletingId, setDeletingId] = useState(null);
+  const [updatingItem, setUpdatingItem] = useState(null); // { orderId, itemIndex }
 
   const isFetchingRef = useRef(false);
   const countdownIntervalRef = useRef(null);
@@ -159,31 +450,92 @@ export default function SupportList() {
     setOrders((prev) =>
       prev.map((o) => (o._id === id ? { ...o, status: nextStatus } : o)),
     );
-    // Auto-hide completed orders after 5 seconds
-    if (nextStatus === 'completed') {
-      setTimeout(() => {
-        setOrders((prev) => prev.filter((o) => o._id !== id));
-      }, 5000);
+    if (nextStatus === "completed") {
+      setTimeout(
+        () => setOrders((prev) => prev.filter((o) => o._id !== id)),
+        5000,
+      );
     }
   };
 
+  // ── Toggle single item ──────────────────────────────────────────────────────
+  const toggleItemFinished = useCallback(async (orderId, itemIndex) => {
+    setUpdatingItem({ orderId, itemIndex });
+
+    // Optimistic update
+    setOrders((prev) =>
+      prev.map((o) => {
+        if (o._id !== orderId) return o;
+        const newItems = [...o.items];
+        newItems[itemIndex] = {
+          ...newItems[itemIndex],
+          finished: !newItems[itemIndex].finished,
+        };
+        return { ...o, items: newItems };
+      }),
+    );
+
+    try {
+      const res = await fetch("/api/orderHandler?action=toggleItemFinished", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId, itemIndex }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.success) throw new Error(data?.message || "Failed");
+      if (data.order) {
+        setOrders((prev) =>
+          prev.map((o) => (o._id === orderId ? data.order : o)),
+        );
+      }
+    } catch (e) {
+      console.error("Failed to toggle item:", e);
+      // Revert
+      setOrders((prev) =>
+        prev.map((o) => {
+          if (o._id !== orderId) return o;
+          const newItems = [...o.items];
+          newItems[itemIndex] = {
+            ...newItems[itemIndex],
+            finished: !newItems[itemIndex].finished,
+          };
+          return { ...o, items: newItems };
+        }),
+      );
+      alert("Failed to update item status. Please try again.");
+    } finally {
+      setUpdatingItem(null);
+    }
+  }, []);
+
+  // ── Mark all items in a category as done ────────────────────────────────────
+  const markCategoryAllDone = useCallback(
+    async (orderId, categoryItems) => {
+      const unfinished = categoryItems.filter((it) => !it.finished);
+      if (unfinished.length === 0) return;
+
+      // Fire all toggles sequentially (avoid race conditions)
+      for (const it of unfinished) {
+        await toggleItemFinished(orderId, it._globalIndex);
+      }
+    },
+    [toggleItemFinished],
+  );
+
+  // ── Delete order ────────────────────────────────────────────────────────────
   const deleteOrder = async (orderId) => {
     if (!orderId) return;
-    const yes = confirm('Delete this order permanently?');
-    if (!yes) return;
-
+    if (!confirm("Delete this order permanently?")) return;
     setDeletingId(orderId);
     try {
-      const res = await fetch('/api/orderHandler?action=delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/orderHandler?action=delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ orderId }),
       });
       const data = await res.json();
-      if (!res.ok || !data?.success) {
-        throw new Error(data?.message || 'Failed to delete order');
-      }
-      // Optimistically remove from local list
+      if (!res.ok || !data?.success)
+        throw new Error(data?.message || "Failed to delete order");
       setOrders((prev) => prev.filter((o) => o._id !== orderId));
     } catch (e) {
       alert(e.message);
@@ -192,12 +544,12 @@ export default function SupportList() {
     }
   };
 
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
       {/* Header with reload button and countdown */}
       <div className="flex items-center justify-between">
         <h2 className="text-white text-xl font-bold">Support Orders</h2>
-
         <div className="flex items-center gap-3">
           {lastUpdated && (
             <span className="text-xs text-white/60">
@@ -226,6 +578,16 @@ export default function SupportList() {
         </div>
       </div>
 
+      {/* Hint banner */}
+      <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/8 border border-amber-500/20 text-amber-200/70 text-xs">
+        <ChefHat className="w-3.5 h-3.5 flex-shrink-0" />
+        <span>
+          <strong>Chef tip:</strong> Double-click (or double-tap on mobile) any
+          dish to mark it as done. Use <em>All done</em> to finish an entire
+          category at once.
+        </span>
+      </div>
+
       {/* Skeleton */}
       {loadingList && orders.length === 0 && (
         <div className="space-y-4">
@@ -251,14 +613,34 @@ export default function SupportList() {
           const placedAbs = placedAtDate ? formatAbsolute(placedAtDate) : null;
           const placedRel = placedAtDate ? formatRelative(placedAtDate) : null;
 
+          const totalItems = o.items?.length || 0;
+          const finishedItems =
+            o.items?.filter((it) => it.finished).length || 0;
+          const orderProgress =
+            totalItems > 0 ? Math.round((finishedItems / totalItems) * 100) : 0;
+
+          // Attach _globalIndex to each item before grouping
+          const itemsWithIndex = (o.items || []).map((it, idx) => ({
+            ...it,
+            _globalIndex: idx,
+          }));
+          const grouped = groupByCategory(itemsWithIndex, menuLookup);
+
           return (
             <article
               key={o._id}
-              className="rounded-2xl bg-white/8 border border-white/20 text-white p-4 md:p-5"
+              className="rounded-2xl bg-white/8 border border-white/20 text-white p-4 md:p-5 transition-all duration-300"
+              style={{
+                borderColor:
+                  orderProgress === 100
+                    ? "rgba(34,197,94,0.35)"
+                    : "rgba(255,255,255,0.2)",
+              }}
             >
+              {/* Order header */}
               <div className="flex items-start justify-between gap-3 mb-2">
                 <div className="flex-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="text-lg font-extrabold">
                       Table #{o.tableNo}
                     </h3>
@@ -273,14 +655,14 @@ export default function SupportList() {
                             : 'bg-red-700 border-red-600 text-white hover:bg-red-800'
                         }`}
                       title="Delete order"
-                      aria-label={`Delete order for table ${o.tableNo}`}
                     >
-                      {deletingId === o._id ? 'Deleting...' : 'Delete'}
+                      {deletingId === o._id ? "Deleting..." : "Delete"}
                     </button>
                   </div>
 
-                  <div className="text-white/70 text-xs mt-1">
-                    Placed:{' '}
+                  <div className="text-white/70 text-xs mt-1 flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    <span>Placed: </span>
                     {placedAtDate ? (
                       <time
                         dateTime={placedAtDate.toISOString()}
@@ -295,6 +677,30 @@ export default function SupportList() {
                   </div>
                 </div>
 
+                {/* Progress badge */}
+                {totalItems > 0 && (
+                  <span
+                    className="px-2.5 py-1 rounded-full text-xs font-bold border"
+                    style={{
+                      background:
+                        orderProgress === 100
+                          ? "rgba(34,197,94,0.15)"
+                          : "rgba(251,191,36,0.15)",
+                      borderColor:
+                        orderProgress === 100
+                          ? "rgba(34,197,94,0.3)"
+                          : "rgba(251,191,36,0.3)",
+                      color:
+                        orderProgress === 100
+                          ? "rgba(134,239,172,0.9)"
+                          : "rgba(252,211,77,0.9)",
+                    }}
+                  >
+                    {finishedItems}/{totalItems}
+                    {/* done */}
+                  </span>
+                )}
+
                 <OrderSlideSwitch
                   orderId={o._id}
                   tableNo={o.tableNo}
@@ -304,6 +710,22 @@ export default function SupportList() {
                   }
                 />
               </div>
+
+              {/* Overall progress bar */}
+              {totalItems > 0 && (
+                <div className="mb-3 h-1.5 rounded-full bg-white/10 overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-700"
+                    style={{
+                      width: `${orderProgress}%`,
+                      background:
+                        orderProgress === 100
+                          ? "rgba(34,197,94,0.7)"
+                          : "linear-gradient(90deg, rgba(251,191,36,0.7), rgba(251,191,36,0.5))",
+                    }}
+                  />
+                </div>
+              )}
 
               {/* People chips */}
               <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
@@ -321,66 +743,44 @@ export default function SupportList() {
                 </span>
               </div>
 
-              {Array.isArray(o.items) && o.items.length > 0 ? (
+              {/* Category cards */}
+              {itemsWithIndex.length > 0 ? (
                 <div className="mb-3">
-                  {/* Horizontal scrollable categories */}
-                  <div className="flex flex-wrap gap-2">
-                    {Object.entries(groupByCategory(o.items, menuLookup)).map(
-                      ([category, items]) => (
-                        <div
-                          key={category}
-                          className="rounded-xl bg-black/25 border border-white/10 p-2.5 min-w-[140px]"
-                        >
-                          {/* Category header */}
-                          <div className="mb-2">
-                            <span className="px-2 py-0.5 rounded-full bg-amber-500/25 border border-amber-500/40 text-amber-200 text-[10px] font-bold uppercase tracking-wider">
-                              {category}
-                            </span>
-                            <span className="text-[10px] text-white/40 ml-1.5">
-                              {items.length}
-                            </span>
-                          </div>
-                          {/* Items stacked inside this category card */}
-                          <div className="space-y-1.5">
-                            {items.map((it, i) => (
-                              <div
-                                key={i}
-                                className="flex items-center gap-2 bg-white/8 rounded-lg px-2 py-1"
-                              >
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                  src={it.image}
-                                  alt={it.name}
-                                  className="w-7 h-7 rounded-md object-cover flex-shrink-0"
-                                  onError={(e) => {
-                                    e.currentTarget.src = '/menu/default.jpg';
-                                  }}
-                                />
-                                <span className="text-white text-xs font-medium truncate">
-                                  {it.name}
-                                </span>
-                                <span className="text-amber-300/90 text-[10px] font-bold ml-auto flex-shrink-0">
-                                  ×{it.qty}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ),
-                    )}
+                  <div className="flex flex-wrap gap-2.5">
+                    {Object.entries(grouped).map(([category, items]) => (
+                      <CategoryCard
+                        key={category}
+                        category={category}
+                        items={items}
+                        orderId={o._id}
+                        updatingItem={updatingItem}
+                        onToggle={toggleItemFinished}
+                        onMarkAllDone={(categoryItems) =>
+                          markCategoryAllDone(o._id, categoryItems)
+                        }
+                      />
+                    ))}
                   </div>
-                  {/* Total */}
-                  <div className="mt-2 pt-2 border-t border-white/10">
+
+                  {/* Footer summary */}
+                  <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between">
                     <span className="text-white/50 text-xs">
                       Total: {o.items.reduce((s, it) => s + (it.qty || 1), 0)}{' '}
                       items
                     </span>
+                    {orderProgress === 100 && (
+                      <span className="text-green-300 text-xs font-bold flex items-center gap-1.5">
+                        <Check className="w-3.5 h-3.5" />
+                        All items prepared — ready to serve!
+                      </span>
+                    )}
                   </div>
                 </div>
               ) : (
                 <div className="text-white/70 mb-3 text-sm">No items.</div>
               )}
 
+              {/* Status */}
               <div className="text-white/70 text-sm">
                 Status:{' '}
                 {isComplete ? (
