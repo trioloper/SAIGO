@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
-import { RotateCcw, Check, ChefHat, Clock } from 'lucide-react';
-import OrderSlideSwitch from './OrderSlideSwitch';
-import menuData from '../data/menu.json';
+import { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import { RotateCcw, Check, ChefHat, Clock } from "lucide-react";
+import OrderSlideSwitch from "./OrderSlideSwitch";
+import menuData from "../data/menu.json";
 
 // Build a lookup: item id/name -> { category, image }
 function buildMenuLookup(menu) {
@@ -11,7 +11,7 @@ function buildMenuLookup(menu) {
     for (const item of cat.items) {
       const entry = {
         category: cat.category,
-        image: item.image || '/menu/default.jpg',
+        image: item.image || "/menu/default.jpg",
       };
       if (item.id) byId[String(item.id)] = entry;
       if (item.name) byName[item.name.toLowerCase()] = entry;
@@ -25,14 +25,14 @@ function lookupItem(lookup, item) {
   if (item.category) {
     return {
       category: item.category,
-      image: item.image || '/menu/default.jpg',
+      image: item.image || "/menu/default.jpg",
     };
   }
   if (item.id && lookup.byId[String(item.id)])
     return lookup.byId[String(item.id)];
   if (item.name && lookup.byName[item.name.toLowerCase()])
     return lookup.byName[item.name.toLowerCase()];
-  return { category: 'Other', image: '/menu/default.jpg' };
+  return { category: "Other", image: "/menu/default.jpg" };
 }
 
 // Group order items by category
@@ -356,7 +356,7 @@ export default function SupportList() {
       // Prefer explicit history “placed” record if available
       if (Array.isArray(o?.history)) {
         const placedEvents = o.history
-          .filter((e) => (e?.status || e?.type) === 'placed' && e?.at)
+          .filter((e) => (e?.status || e?.type) === "placed" && e?.at)
           .sort((a, b) => new Date(a.at) - new Date(b.at));
         if (placedEvents.length) {
           const d = new Date(placedEvents[placedEvents.length - 1].at);
@@ -384,25 +384,25 @@ export default function SupportList() {
 
   const formatAbsolute = (d) =>
     new Intl.DateTimeFormat(undefined, {
-      hour: '2-digit',
-      minute: '2-digit',
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
+      hour: "2-digit",
+      minute: "2-digit",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
     }).format(d);
 
   const formatRelative = (d) => {
-    const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+    const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
     const diffMs = d.getTime() - Date.now();
     const seconds = Math.round(diffMs / 1000);
     const minutes = Math.round(seconds / 60);
     const hours = Math.round(minutes / 60);
     const days = Math.round(hours / 24);
 
-    if (Math.abs(seconds) < 60) return rtf.format(seconds, 'second');
-    if (Math.abs(minutes) < 60) return rtf.format(minutes, 'minute');
-    if (Math.abs(hours) < 24) return rtf.format(hours, 'hour');
-    return rtf.format(days, 'day');
+    if (Math.abs(seconds) < 60) return rtf.format(seconds, "second");
+    if (Math.abs(minutes) < 60) return rtf.format(minutes, "minute");
+    if (Math.abs(hours) < 24) return rtf.format(hours, "hour");
+    return rtf.format(days, "day");
   };
 
   // -----------------------------------------------------
@@ -412,13 +412,13 @@ export default function SupportList() {
     isFetchingRef.current = true;
     setLoadingList(true);
     try {
-      const res = await fetch('/api/orderHandler?list=true', {
-        cache: 'no-store',
+      const res = await fetch("/api/orderHandler?list=true", {
+        cache: "no-store",
       });
       const data = await res.json();
       const all = Array.isArray(data?.orders) ? data.orders : [];
       // Only show non-completed orders (completed ones go to history)
-      setOrders(all.filter((o) => o.status !== 'completed'));
+      setOrders(all.filter((o) => o.status !== "completed"));
       setLastUpdated(new Date());
       setSecondsLeft(RELOAD_INTERVAL); // reset countdown
     } finally {
@@ -558,7 +558,7 @@ export default function SupportList() {
           )}
 
           <span className="text-xs text-white/60">
-            Reloading in{' '}
+            Reloading in{" "}
             <span className="font-semibold text-white">{secondsLeft}s</span>
           </span>
 
@@ -569,10 +569,10 @@ export default function SupportList() {
             className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 border border-white/20 text-white text-sm hover:bg-white/15 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
           >
             <RotateCcw
-              className={`w-4 h-4 ${loadingList ? 'animate-spin text-blue-300' : 'text-white'}`}
+              className={`w-4 h-4 ${loadingList ? "animate-spin text-blue-300" : "text-white"}`}
             />
             <span className="hidden sm:inline">
-              {loadingList ? 'Reloading...' : 'Reload'}
+              {loadingList ? "Reloading..." : "Reload"}
             </span>
           </button>
         </div>
@@ -606,8 +606,8 @@ export default function SupportList() {
           const adult = o?.adult ?? 0;
           const barn1 = o?.Barn1 ?? 0;
           const barn2 = o?.Barn2 ?? 0;
-          const status = o.status || 'placed';
-          const isComplete = status === 'completed';
+          const status = o.status || "placed";
+          const isComplete = status === "completed";
 
           const placedAtDate = getPlacedDate(o);
           const placedAbs = placedAtDate ? formatAbsolute(placedAtDate) : null;
@@ -651,8 +651,8 @@ export default function SupportList() {
                       className={`px-2.5 py-1 rounded-lg text-xs border font-medium transition-all
                         ${
                           deletingId === o._id
-                            ? 'bg-red-800 border-red-700 text-red-200 cursor-wait'
-                            : 'bg-red-700 border-red-600 text-white hover:bg-red-800'
+                            ? "bg-red-800 border-red-700 text-red-200 cursor-wait"
+                            : "bg-red-700 border-red-600 text-white hover:bg-red-800"
                         }`}
                       title="Delete order"
                     >
@@ -668,7 +668,7 @@ export default function SupportList() {
                         dateTime={placedAtDate.toISOString()}
                         title={placedAbs}
                       >
-                        {placedAbs}{' '}
+                        {placedAbs}{" "}
                         <span className="opacity-70">({placedRel})</span>
                       </time>
                     ) : (
@@ -765,7 +765,7 @@ export default function SupportList() {
                   {/* Footer summary */}
                   <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between">
                     <span className="text-white/50 text-xs">
-                      Total: {o.items.reduce((s, it) => s + (it.qty || 1), 0)}{' '}
+                      Total: {o.items.reduce((s, it) => s + (it.qty || 1), 0)}{" "}
                       items
                     </span>
                     {orderProgress === 100 && (
@@ -782,7 +782,7 @@ export default function SupportList() {
 
               {/* Status */}
               <div className="text-white/70 text-sm">
-                Status:{' '}
+                Status:{" "}
                 {isComplete ? (
                   <span className="text-green-300 font-semibold">
                     Completed
