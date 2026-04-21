@@ -21,18 +21,18 @@ function slugify(str) {
 // Transform DB format to static format for compatibility
 function transformDbMenu(dbCategories) {
   return dbCategories
-  .filter((cat) => !cat.hidden)
-  .map((cat) => ({
-    category: cat.name,
-    items: (cat.items || [])
-    .filter((item) => !item.hidden)
-    .map((item) => ({
-      id: item._id,
-      name: item.name,
-      image: item.image || "/menu/default.jpg",
-      price: item.price || 0,
-    })),
-  }));
+    .filter((cat) => !cat.hidden)
+    .map((cat) => ({
+      category: cat.name,
+      items: (cat.items || [])
+        .filter((item) => !item.hidden)
+        .map((item) => ({
+          id: item._id,
+          name: item.name,
+          image: item.image || "/menu/default.jpg",
+          price: item.price || 0,
+        })),
+    }));
 }
 
 export default function Home() {
@@ -96,6 +96,9 @@ export default function Home() {
   // NEW: success modal state
   const [showPlacedModal, setShowPlacedModal] = useState(false);
   const [placedOrder, setPlacedOrder] = useState(null); // { id, items, payable }
+
+  // Welcome modal state (shows OBS warning on first scan)
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
 
   // ---------- Hooks (unconditional) ----------
   const tableSet = useMemo(() => new Set(tablesData), []);
@@ -173,6 +176,18 @@ export default function Home() {
       setShowPeopleError(false);
     }
   }, [peopleTotal, showPeopleError]);
+
+  // Show welcome modal on first visit with valid tableNo
+  useEffect(() => {
+    if (routerReady && valid && tableNo) {
+      const key = `welcomed_table_${tableNo}`;
+      const hasSeenWelcome = sessionStorage.getItem(key);
+      if (!hasSeenWelcome) {
+        setShowWelcomeModal(true);
+        sessionStorage.setItem(key, "true");
+      }
+    }
+  }, [routerReady, valid, tableNo]);
 
   const ensurePeopleOrFocus = () => {
     if (peopleTotal === 0) {
@@ -583,6 +598,76 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* === Welcome Modal (OBS warning on first scan) === */}
+      {showWelcomeModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setShowWelcomeModal(false)}
+        >
+          <div
+            className="bg-gradient-to-b from-[#1a3a2e] to-[#152b23] rounded-2xl w-full max-w-md mx-4 p-6 shadow-2xl border border-white/10 animate-fadeIn"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-center mb-5">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-500/20 flex items-center justify-center">
+                <span className="text-4xl">👋</span>
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-2">
+                Välkommen till Bord #{tableNo}!
+              </h3>
+              <p className="text-white/70 text-sm">
+                Innan du börjar beställa, läs detta viktiga meddelande
+              </p>
+            </div>
+
+            {/* Message */}
+
+            <div className="rounded-xl bg-red-500/15 border border-red-500/30 px-4 py-4 mb-6">
+              <p className="text-red-200 text-sm font-medium leading-relaxed text-center">
+                <span className="font-bold text-red-300 text-base">OBS!</span>
+                <br />
+                <span className="mt-2 block">
+                  För att undvika matspill får du/ni inte lämna mer än 3
+                  sushibitar/bord vid måltidens slut, annars debiteras 15
+                  kr/bit.
+                </span>
+              </p>
+            </div>
+
+            {/* Pricing */}
+            <div className="rounded-xl bg-white/5 border border-white/10 px-4 py-4 mb-4">
+              <h4 className="text-white font-bold text-sm uppercase tracking-wide mb-3 text-center">
+                All You Can Eat Priser
+              </h4>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-white/80 text-sm">Vuxen</span>
+                  <span className="text-amber-300 font-bold text-base">299 kr</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-white/80 text-sm">Barn 7–12 år</span>
+                  <span className="text-amber-300  font-bold text-base">199 kr</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-white/80 text-sm">Barn 3–6 år</span>
+                  <span className="text-amber-300  font-bold text-base">99 kr</span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowWelcomeModal(false)}
+              className="w-full btn-premium px-6 py-3 rounded-xl text-base font-semibold"
+            >
+              Jag förstår – Börja beställa
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* === Image Preview Modal === */}
       {selectedItem && (
         <div
@@ -632,15 +717,16 @@ export default function Home() {
           aria-modal="true"
         >
           <div className="bg-white text-[#244a38] rounded-2xl w-full max-w-md mx-4 p-5 shadow-xl animate-fadeIn">
+            {/* <div className="flex items-center justify-between mb-3"> */}
             {/* OBS warning */}
-            <div className="mt-4 rounded-xl bg-red-500/10 border border-red-500/30 px-4 py-3">
+            {/* <div className="mt-0 rounded-xl bg-red-500/10 border border-red-500/30 px-4 py-3">
               <p className="text-red-300 text-xs sm:text-sm font-medium leading-relaxed text-center">
                 <span className="font-bold text-red-400">OBS!</span> För att
                 undvika matspill får du/ni inte lämna mer än 3 sushibitar/bord
                 vid måltidens slut, annars debiteras 15 kr/bit.
               </p>
-            </div>
-            <div className="flex items-center justify-between">
+            </div> */}
+            <div className="flex items-center justify-between mt-2">
               <h3 className="text-lg font-semibold">Order placed!</h3>
               <button
                 aria-label="Close"
@@ -656,7 +742,7 @@ export default function Home() {
               <span className="font-semibold">Table #{tableNo}</span>.
             </p>
 
-            <ul className="mt-3 max-h-48 overflow-auto divide-y divide-gray-200/70">
+            <ul className="mt-3 max-h-48 overflow-auto divide-y divide-gray-200/70 mb-4">
               {(placedOrder?.items || []).map((it) => (
                 <li
                   key={it.id}
@@ -668,7 +754,7 @@ export default function Home() {
               ))}
             </ul>
 
-            <div className="mt-4 flex gap-2 justify-end">
+            <div className="flex gap-2 justify-end">
               <button
                 onClick={() => setShowPlacedModal(false)}
                 className="px-4 py-2 rounded-xl bg-[#244a38] text-white font-semibold hover:bg-[#1d3f32] transition"
