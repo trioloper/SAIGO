@@ -8,7 +8,7 @@ import tablesData from "../data/tables.json";
 import staticMenuData from "../data/menu.json";
 
 const price1 = 99;
-const price2 = 299;
+const price2 = 229;
 const price3 = 329;
 
 const SupportList = dynamic(() => import("../components/SupportList"), {
