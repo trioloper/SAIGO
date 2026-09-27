@@ -7,6 +7,10 @@ import Shell from "../components/Shell";
 import tablesData from "../data/tables.json";
 import staticMenuData from "../data/menu.json";
 
+const price1 = 99;
+const price2 = 299;
+const price3 = 329;
+
 const SupportList = dynamic(() => import("../components/SupportList"), {
   ssr: false,
 });
@@ -645,15 +649,15 @@ export default function Home() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-white/80 text-sm">Vuxen</span>
-                  <span className="text-amber-300 font-bold text-base">299 kr</span>
+                  <span className="text-amber-300 font-bold text-base">${price3} kr</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-white/80 text-sm">Barn 7–12 år</span>
-                  <span className="text-amber-300  font-bold text-base">199 kr</span>
+                  <span className="text-amber-300  font-bold text-base">${price2} kr</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-white/80 text-sm">Barn 3–6 år</span>
-                  <span className="text-amber-300  font-bold text-base">99 kr</span>
+                  <span className="text-amber-300  font-bold text-base">${price1} kr</span>
                 </div>
               </div>
             </div>
