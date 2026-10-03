@@ -12,11 +12,39 @@ export const config = {
 };
 
 export function getLocalMenuDir() {
-  const dir = path.join(process.cwd(), 'public', 'menu');
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+  // 1. Explicit env override
+  if (process.env.LOCAL_MENU_DIR && fs.existsSync(process.env.LOCAL_MENU_DIR)) {
+    return process.env.LOCAL_MENU_DIR;
   }
-  return dir;
+
+  // 2. Normal client cwd: process.cwd() is /var/www/saigo/client -> public/menu
+  const directPath = path.join(process.cwd(), 'public', 'menu');
+  if (fs.existsSync(directPath)) {
+    return directPath;
+  }
+
+  // 3. Root cwd: process.cwd() is /var/www/saigo -> client/public/menu
+  const subPath = path.join(process.cwd(), 'client', 'public', 'menu');
+  if (fs.existsSync(subPath)) {
+    return subPath;
+  }
+
+  // 4. Absolute DigitalOcean VPS production path
+  const vpsPath = '/var/www/saigo/client/public/menu';
+  if (fs.existsSync(vpsPath)) {
+    return vpsPath;
+  }
+
+  // 5. Fallback: try creating directPath
+  try {
+    if (!fs.existsSync(directPath)) {
+      fs.mkdirSync(directPath, { recursive: true });
+    }
+    return directPath;
+  } catch (err) {
+    console.error('Failed to create directPath:', directPath, err.message);
+    return directPath;
+  }
 }
 
 export default async function handler(req, res) {
@@ -122,13 +150,27 @@ export default async function handler(req, res) {
       targetPath = path.join(menuDir, finalFileName);
     }
 
-    fs.writeFileSync(targetPath, buffer);
+    try {
+      fs.writeFileSync(targetPath, buffer);
+    } catch (writeErr) {
+      console.error('File write error at targetPath:', targetPath, writeErr);
+      if (writeErr.code === 'EACCES' || writeErr.code === 'EPERM') {
+        return res.status(500).json({
+          success: false,
+          message: `Permission denied writing to "${menuDir}". Run: sudo chown -R $USER:$USER "${menuDir}" or sudo chmod -R 777 "${menuDir}"`,
+          code: writeErr.code,
+          targetPath,
+        });
+      }
+      throw writeErr;
+    }
 
     return res.json({
       success: true,
       url: `/menu/${finalFileName}`,
       fileName: finalFileName,
       driver: 'local',
+      targetPath,
     });
   } catch (err) {
     console.error('Upload error:', err);

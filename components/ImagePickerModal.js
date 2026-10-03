@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { compressFileToDataUrl } from "../lib/clientImageCompress";
 
 export default function ImagePickerModal({ isOpen, onClose, onSelect, currentImage }) {
   const [images, setImages] = useState([]);
@@ -15,7 +16,10 @@ export default function ImagePickerModal({ isOpen, onClose, onSelect, currentIma
   const loadImages = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/storageHandler");
+      const res = await fetch(`/api/storageHandler?t=${Date.now()}`, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache, no-store, must-revalidate" },
+      });
       const data = await res.json();
       if (data.success) {
         setImages(data.files || []);
@@ -33,13 +37,7 @@ export default function ImagePickerModal({ isOpen, onClose, onSelect, currentIma
     setUploading(true);
 
     try {
-      const reader = new FileReader();
-      const base64Promise = new Promise((resolve, reject) => {
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-      });
-      reader.readAsDataURL(file);
-      const base64Data = await base64Promise;
+      const base64Data = await compressFileToDataUrl(file);
 
       const res = await fetch("/api/uploadImage", {
         method: "POST",
@@ -47,7 +45,7 @@ export default function ImagePickerModal({ isOpen, onClose, onSelect, currentIma
         body: JSON.stringify({
           imageData: base64Data,
           fileName: file.name,
-          contentType: file.type,
+          contentType: file.type || "image/jpeg",
         }),
       });
 
@@ -77,43 +75,43 @@ export default function ImagePickerModal({ isOpen, onClose, onSelect, currentIma
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="bg-[#152b23] border border-white/20 rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-2 sm:p-4">
+      <div className="bg-[#152b23] border border-white/20 rounded-xl sm:rounded-2xl w-full max-w-4xl h-[94vh] sm:h-auto sm:max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="p-4 border-b border-white/10 flex items-center justify-between bg-[#0f1f1a]">
-          <div>
-            <h2 className="text-xl font-bold text-amber-200 flex items-center gap-2">
+        <div className="p-3 sm:p-4 border-b border-white/10 flex items-center justify-between bg-[#0f1f1a]">
+          <div className="min-w-0 pr-2">
+            <h2 className="text-lg sm:text-xl font-bold text-amber-200 flex items-center gap-1.5 truncate">
               <span>🖼️</span> Select Local Image
             </h2>
-            <p className="text-xs text-white/60">
-              Browse public/menu assets or upload a new photo
+            <p className="text-[11px] sm:text-xs text-white/60 truncate">
+              Choose from public/menu or upload a new photo
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-white/60 hover:text-white hover:bg-white/10 rounded-lg transition"
+            className="p-2 text-white/60 hover:text-white active:bg-white/10 rounded-lg transition text-base flex-shrink-0"
           >
             ✕
           </button>
         </div>
 
         {/* Toolbar: Search + Quick Upload */}
-        <div className="p-4 border-b border-white/10 flex flex-wrap gap-3 items-center justify-between bg-[#13251e]">
-          <div className="flex-1 min-w-[200px]">
+        <div className="p-3 sm:p-4 border-b border-white/10 flex flex-col sm:flex-row gap-2 sm:gap-3 sm:items-center justify-between bg-[#13251e]">
+          <div className="w-full sm:flex-1">
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search images (e.g. 01, 24, saigo)..."
-              className="w-full bg-[#0f1f1a] border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white placeholder-white/40 focus:border-amber-500/50 focus:outline-none"
+              className="w-full bg-[#0f1f1a] border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/40 focus:border-amber-500/50 focus:outline-none"
             />
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
-              className="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 rounded-lg text-amber-200 text-xs font-semibold flex items-center gap-1.5 transition disabled:opacity-50"
+              className="flex-1 sm:flex-initial px-3.5 py-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 rounded-lg text-amber-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition disabled:opacity-50 active:scale-95"
             >
               {uploading ? (
                 <>
@@ -121,7 +119,7 @@ export default function ImagePickerModal({ isOpen, onClose, onSelect, currentIma
                 </>
               ) : (
                 <>
-                  <span>+</span> Upload New Asset
+                  <span>+</span> Upload New Photo
                 </>
               )}
             </button>
@@ -136,7 +134,7 @@ export default function ImagePickerModal({ isOpen, onClose, onSelect, currentIma
         </div>
 
         {/* Images Grid */}
-        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-2.5 sm:p-4 custom-scrollbar">
           {loading ? (
             <div className="text-center py-12 text-white/50">
               <div className="spinner h-8 w-8 mx-auto mb-2" />
@@ -147,7 +145,7 @@ export default function ImagePickerModal({ isOpen, onClose, onSelect, currentIma
               <p className="text-sm">No images match your search</p>
             </div>
           ) : (
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2 sm:gap-3">
               {filteredImages.map((file) => {
                 const isSelected =
                   currentImage === file.url ||
@@ -162,7 +160,7 @@ export default function ImagePickerModal({ isOpen, onClose, onSelect, currentIma
                       onSelect(file.url, file.name);
                       onClose();
                     }}
-                    className={`group relative flex flex-col rounded-xl overflow-hidden border text-left transition-all duration-200 hover:scale-[1.03] ${
+                    className={`group relative flex flex-col rounded-xl overflow-hidden border text-left transition-all duration-200 active:scale-95 hover:scale-[1.02] ${
                       isSelected
                         ? "border-amber-400 ring-2 ring-amber-400/50 bg-amber-400/10"
                         : "border-white/10 hover:border-amber-400/40 bg-[#0f1f1a]"

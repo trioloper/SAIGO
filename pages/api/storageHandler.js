@@ -18,6 +18,11 @@ export const config = {
 };
 
 export default async function handler(req, res) {
+  // Prevent any browser or intermediary caching of storage API responses
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+
   const menuDir = getLocalMenuDir();
   const driver = (
     process.env.IMAGE_STORAGE_DRIVER ||
@@ -51,7 +56,8 @@ export default async function handler(req, res) {
             url: `/menu/${encodeURIComponent(file)}`,
             size: stats.size,
             modified: stats.mtime,
-            isProtected: ['saigo.jpg', 'default.jpg'].includes(file.toLowerCase()),
+            // Only protect saigo.jpg core brand asset
+            isProtected: file.toLowerCase() === 'saigo.jpg',
           };
         })
         .sort((a, b) => {
@@ -153,8 +159,8 @@ export default async function handler(req, res) {
       }
 
       const safeName = path.basename(fileNameParam);
-      if (['saigo.jpg', 'default.jpg'].includes(safeName.toLowerCase())) {
-        return res.status(400).json({ success: false, message: 'Core system assets cannot be deleted' });
+      if (safeName.toLowerCase() === 'saigo.jpg') {
+        return res.status(400).json({ success: false, message: 'Core system asset (saigo.jpg) cannot be deleted' });
       }
 
       const filePath = path.join(menuDir, safeName);
@@ -163,6 +169,28 @@ export default async function handler(req, res) {
       }
 
       fs.unlinkSync(filePath);
+
+      // Reset any menu item referencing this deleted image to fallback /menu/saigo.jpg
+      try {
+        const menuRes = await fetch(`${SERVER}/api/menu`);
+        const menuData = await menuRes.json();
+        if (menuData?.success && Array.isArray(menuData.categories)) {
+          const deletedUrl = `/menu/${safeName}`;
+          for (const cat of menuData.categories) {
+            for (const it of cat.items || []) {
+              if (it.image === deletedUrl) {
+                await fetch(`${SERVER}/api/menu/categories/${cat._id}/items/${it._id}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ image: '/menu/saigo.jpg' }),
+                });
+              }
+            }
+          }
+        }
+      } catch (dbErr) {
+        console.warn('Could not reset DB references after delete:', dbErr.message);
+      }
 
       return res.json({
         success: true,
@@ -195,23 +223,31 @@ export default async function handler(req, res) {
       let updatedCount = 0;
       for (const cat of menuData.categories) {
         for (const it of cat.items || []) {
-          // Check if item image is dead Supabase URL or empty
-          const isSupabaseOrMissing =
-            !it.image ||
-            it.image.includes('supabase.co') ||
-            it.image.includes('undefined') ||
-            it.image === '/menu/default.jpg';
+          const rawImg = it.image || '';
+          const fileName = rawImg.startsWith('/menu/') ? path.basename(rawImg) : '';
+          const localExists = fileName && fs.existsSync(path.join(menuDir, fileName));
 
-          if (isSupabaseOrMissing) {
-            const matchedLocal = staticMap.get(it.name.toLowerCase().trim());
+          const matchedLocal = staticMap.get(it.name.toLowerCase().trim());
+
+          const needsRelink =
+            !rawImg ||
+            rawImg.includes('supabase.co') ||
+            rawImg.includes('undefined') ||
+            rawImg.includes('null') ||
+            rawImg === '/menu/default.jpg' ||
+            !localExists ||
+            (req.body.force && matchedLocal && it.image !== matchedLocal);
+
+          if (needsRelink) {
             const targetImage = matchedLocal || '/menu/saigo.jpg';
-
-            await fetch(`${SERVER}/api/menu/categories/${cat._id}/items/${it._id}`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ image: targetImage }),
-            });
-            updatedCount++;
+            if (it.image !== targetImage) {
+              await fetch(`${SERVER}/api/menu/categories/${cat._id}/items/${it._id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: targetImage }),
+              });
+              updatedCount++;
+            }
           }
         }
       }
