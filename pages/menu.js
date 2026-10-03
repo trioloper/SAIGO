@@ -3,6 +3,7 @@ import Head from "next/head";
 import Link from "next/link";
 import StorageModal from "../components/StorageModal";
 import ImagePickerModal from "../components/ImagePickerModal";
+import { compressFileToDataUrl } from "../lib/clientImageCompress";
 
 export default function MenuAdmin() {
   const [categories, setCategories] = useState([]);
@@ -58,7 +59,10 @@ export default function MenuAdmin() {
 
   const fetchMenu = useCallback(async () => {
     try {
-      const res = await fetch("/api/menuHandler");
+      const res = await fetch(`/api/menuHandler?t=${Date.now()}`, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache, no-store, must-revalidate" },
+      });
       const text = await res.text();
       try {
         const data = JSON.parse(text);
@@ -216,18 +220,13 @@ export default function MenuAdmin() {
     }
   };
 
-  // Upload image to Supabase
+  // Upload image (local or Supabase) with client-side compression
   const uploadImage = async (file) => {
     if (!file) return null;
     setUploading(true);
     try {
-      const reader = new FileReader();
-      const base64Promise = new Promise((resolve, reject) => {
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-      });
-      reader.readAsDataURL(file);
-      const base64Data = await base64Promise;
+      // Compress in browser: shrinks 5-15MB phone photos to ~100KB, preventing Nginx 413 limits
+      const base64Data = await compressFileToDataUrl(file);
 
       const res = await fetch("/api/uploadImage", {
         method: "POST",
@@ -235,15 +234,24 @@ export default function MenuAdmin() {
         body: JSON.stringify({
           imageData: base64Data,
           fileName: file.name,
-          contentType: file.type,
+          contentType: file.type || "image/jpeg",
         }),
       });
 
-      const data = await res.json();
+      let data;
+      try {
+        data = await res.json();
+      } catch (jsonErr) {
+        if (res.status === 413) {
+          throw new Error("File too large for server proxy. Try a smaller image.");
+        }
+        throw new Error(`Server returned HTTP ${res.status}`);
+      }
+
       if (data.success) {
         return data.url;
       } else {
-        showMessage("Upload failed: " + data.message, "error");
+        showMessage("Upload failed: " + (data.message || "Unknown error"), "error");
         return null;
       }
     } catch (err) {
@@ -464,27 +472,27 @@ export default function MenuAdmin() {
       </Head>
 
       <div className="min-h-screen bg-gradient-to-b from-[#1a3a2e] via-[#1d3f32] to-[#152b23] text-white">
-        <div className="max-w-6xl mx-auto px-4 py-6">
+        <div className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
           {/* Header */}
-          <div className="mb-8 flex items-start justify-between">
+          <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-amber-200 to-amber-400 bg-clip-text text-transparent">
+              <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-amber-200 to-amber-400 bg-clip-text text-transparent">
                 Menu Admin
               </h1>
-              <p className="text-white/60 text-sm mt-1">
+              <p className="text-white/60 text-xs sm:text-sm mt-0.5">
                 Manage categories &amp; items
               </p>
             </div>
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
               <button
                 onClick={() => setShowStorageModal(true)}
-                className="px-4 py-2 bg-emerald-500/20 border border-emerald-500/40 rounded-xl text-emerald-200 text-sm hover:bg-emerald-500/30 transition flex items-center gap-2 font-semibold shadow-sm hover:scale-[1.02]"
+                className="flex-1 sm:flex-initial px-3.5 py-2.5 bg-emerald-500/20 border border-emerald-500/40 rounded-xl text-emerald-200 text-xs sm:text-sm hover:bg-emerald-500/30 transition flex items-center justify-center gap-2 font-semibold shadow-sm active:scale-95"
               >
                 📁 Storage
               </button>
               <Link
                 href="/history"
-                className="px-4 py-2 bg-amber-500/20 border border-amber-500/30 rounded-xl text-amber-200 text-sm hover:bg-amber-500/30 transition flex items-center gap-2"
+                className="flex-1 sm:flex-initial px-3.5 py-2.5 bg-amber-500/20 border border-amber-500/30 rounded-xl text-amber-200 text-xs sm:text-sm hover:bg-amber-500/30 transition flex items-center justify-center gap-2 font-semibold active:scale-95"
               >
                 📋 Order History
               </Link>
@@ -494,7 +502,7 @@ export default function MenuAdmin() {
           {/* Message */}
           {message.text && (
             <div
-              className={`mb-4 p-3 rounded-lg ${
+              className={`mb-4 p-3 rounded-lg text-xs sm:text-sm ${
                 message.type === "error"
                   ? "bg-red-500/20 text-red-200 border border-red-500/30"
                   : "bg-green-500/20 text-green-200 border border-green-500/30"
@@ -505,25 +513,25 @@ export default function MenuAdmin() {
           )}
 
           {/* Add Category */}
-          <div className="premium-card p-4 mb-6">
-            <h2 className="text-lg font-bold text-amber-200 mb-3">
+          <div className="premium-card p-3.5 sm:p-4 mb-6">
+            <h2 className="text-base sm:text-lg font-bold text-amber-200 mb-2.5">
               Add New Category
             </h2>
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
               <input
                 type="text"
                 value={newCategoryName}
                 onChange={(e) => setNewCategoryName(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && addCategory()}
                 placeholder="Category name..."
-                className="flex-1 bg-[#0f1f1a] border border-white/10 rounded-lg px-4 py-2 text-white placeholder-white/40 focus:border-amber-500/50 focus:outline-none"
+                className="flex-1 bg-[#0f1f1a] border border-white/10 rounded-lg px-3.5 py-2.5 text-sm text-white placeholder-white/40 focus:border-amber-500/50 focus:outline-none"
               />
               <button
                 onClick={addCategory}
                 disabled={saving || !newCategoryName.trim()}
-                className="btn-premium px-6 py-2 rounded-lg disabled:opacity-50"
+                className="btn-premium px-5 py-2.5 rounded-lg text-sm disabled:opacity-50 active:scale-95 font-semibold"
               >
-                + Add
+                + Add Category
               </button>
             </div>
           </div>
@@ -552,7 +560,7 @@ export default function MenuAdmin() {
                 >
                   {/* Category Header */}
                   <div
-                    className="p-4 flex items-center justify-between border-b"
+                    className="p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b"
                     style={{
                       background: cat.hidden ? "rgba(30,10,10,0.8)" : "#0f1f1a",
                       borderColor: cat.hidden
@@ -561,7 +569,7 @@ export default function MenuAdmin() {
                     }}
                   >
                     {/* Left: name + badge */}
-                    <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
                       {editingCategory === cat._id ? (
                         <input
                           type="text"
@@ -579,11 +587,11 @@ export default function MenuAdmin() {
                             else if (e.key === "Escape")
                               setEditingCategory(null);
                           }}
-                          className="bg-transparent border-b border-amber-500 text-xl font-bold text-white focus:outline-none"
+                          className="bg-transparent border-b border-amber-500 text-lg sm:text-xl font-bold text-white focus:outline-none w-full"
                         />
                       ) : (
                         <h3
-                          className="text-xl font-bold truncate transition-colors duration-200"
+                          className="text-lg sm:text-xl font-bold truncate transition-colors duration-200"
                           style={{
                             color: cat.hidden
                               ? "rgba(255,255,255,0.35)"
@@ -608,76 +616,59 @@ export default function MenuAdmin() {
                     </div>
 
                     {/* Right: action buttons */}
-                    <div className="flex gap-1 items-center flex-shrink-0 ml-3">
-                      <button
-                        onClick={() => moveCategory(catIndex, -1)}
-                        disabled={catIndex === 0 || saving}
-                        className="p-1.5 hover:bg-white/10 rounded-lg transition disabled:opacity-30 text-white/70 text-sm"
-                        title="Move up"
-                      >
-                        ▲
-                      </button>
-                      <button
-                        onClick={() => moveCategory(catIndex, 1)}
-                        disabled={catIndex === categories.length - 1 || saving}
-                        className="p-1.5 hover:bg-white/10 rounded-lg transition disabled:opacity-30 text-white/70 text-sm"
-                        title="Move down"
-                      >
-                        ▼
-                      </button>
-
-                      {/* Visibility toggle button */}
-                      <button
-                        onClick={() =>
-                          toggleCategoryVisibility(cat._id, cat.hidden)
-                        }
-                        title={
-                          cat.hidden
-                            ? "Make visible to customers"
-                            : "Hide from customers"
-                        }
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 hover:scale-105"
-                        // style={
-                        //   cat.hidden
-                        //     ? {
-                        //         background: "rgba(34,197,94,0.12)",
-                        //         border: "1px solid rgba(34,197,94,0.28)",
-                        //         color: "rgba(134,239,172,0.95)",
-                        //       }
-                        //     : {
-                        //         background: "rgba(239,68,68,0.18)",
-                        //         border: "1px solid rgba(239,68,68,0.35)",
-                        //         color: "rgba(252,165,165,0.95)",
-                        //       }
-                        // }
-                      >
-                        <span style={{ fontSize: 13 }}>
-                          {cat.hidden ? "👁️" : "🚫"}
-                        </span>
-                        {/* <span className="hidden sm:inline">{cat.hidden ? 'Hidden' : 'Visible'}</span> */}
-                      </button>
-
-                      <button
-                        onClick={() => setEditingCategory(cat._id)}
-                        className="p-2 hover:bg-white/10 rounded-lg transition"
-                        title="Edit category name"
-                      >
-                        ✏️
-                      </button>
-                      <button
-                        onClick={() => deleteCategory(cat._id)}
-                        className="p-2 hover:bg-red-500/20 rounded-lg transition text-red-400"
-                        title="Delete category"
-                      >
-                        🗑️
-                      </button>
+                    <div className="flex items-center justify-between sm:justify-end gap-1.5 flex-wrap">
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => moveCategory(catIndex, -1)}
+                          disabled={catIndex === 0 || saving}
+                          className="p-2 hover:bg-white/10 active:bg-white/20 rounded-lg transition disabled:opacity-30 text-white/70 text-sm"
+                          title="Move up"
+                        >
+                          ▲
+                        </button>
+                        <button
+                          onClick={() => moveCategory(catIndex, 1)}
+                          disabled={catIndex === categories.length - 1 || saving}
+                          className="p-2 hover:bg-white/10 active:bg-white/20 rounded-lg transition disabled:opacity-30 text-white/70 text-sm"
+                          title="Move down"
+                        >
+                          ▼
+                        </button>
+                        <button
+                          onClick={() =>
+                            toggleCategoryVisibility(cat._id, cat.hidden)
+                          }
+                          title={
+                            cat.hidden
+                              ? "Make visible to customers"
+                              : "Hide from customers"
+                          }
+                          className="p-2 hover:bg-white/10 active:bg-white/20 rounded-lg text-sm transition"
+                        >
+                          <span>{cat.hidden ? "👁️" : "🚫"}</span>
+                        </button>
+                        <button
+                          onClick={() => setEditingCategory(cat._id)}
+                          className="p-2 hover:bg-white/10 active:bg-white/20 rounded-lg transition text-sm"
+                          title="Edit category name"
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          onClick={() => deleteCategory(cat._id)}
+                          className="p-2 hover:bg-red-500/20 active:bg-red-500/30 rounded-lg transition text-red-400 text-sm"
+                          title="Delete category"
+                        >
+                          🗑️
+                        </button>
+                      </div>
                       <button
                         onClick={() =>
                           setShowAddItem(
                             showAddItem === cat._id ? null : cat._id,
                           )
                         }
-                        className="px-3 py-1 bg-amber-500/20 border border-amber-500/30 rounded-lg text-amber-200 text-sm hover:bg-amber-500/30 transition"
+                        className="px-3.5 py-1.5 bg-amber-500/20 border border-amber-500/30 rounded-lg text-amber-200 text-xs sm:text-sm font-semibold hover:bg-amber-500/30 active:scale-95 transition"
                       >
                         + Add Item
                       </button>
@@ -687,7 +678,7 @@ export default function MenuAdmin() {
                   {/* Hidden category notice banner */}
                   {cat.hidden && (
                     <div
-                      className="px-4 py-2 flex items-center gap-2 text-xs"
+                      className="px-3 sm:px-4 py-2 flex items-center gap-2 text-xs"
                       style={{
                         background: "rgba(239,68,68,0.07)",
                         borderBottom: "1px solid rgba(239,68,68,0.12)",
@@ -706,13 +697,14 @@ export default function MenuAdmin() {
                   {/* Add Item Form */}
                   {showAddItem === cat._id && (
                     <div
-                      className="p-4 border-b border-white/10"
+                      className="p-3 sm:p-4 border-b border-white/10"
                       style={{ background: "#152b23" }}
                     >
-                      <div className="flex gap-4">
-                        <div className="flex-shrink-0">
+                      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                        {/* Image upload box */}
+                        <div className="flex sm:flex-col items-center gap-3 sm:gap-0 flex-shrink-0">
                           <div
-                            className="w-24 h-24 rounded-lg border-2 border-dashed border-white/20 bg-[#0f1f1a] flex items-center justify-center cursor-pointer hover:border-amber-500/50 transition overflow-hidden"
+                            className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl border-2 border-dashed border-white/20 bg-[#0f1f1a] flex items-center justify-center cursor-pointer hover:border-amber-500/50 transition overflow-hidden"
                             onClick={() => fileInputRef.current?.click()}
                           >
                             {newItem.imagePreview ? (
@@ -722,10 +714,10 @@ export default function MenuAdmin() {
                                 className="w-full h-full object-cover"
                               />
                             ) : (
-                              <div className="text-center">
-                                <span className="text-2xl">📷</span>
-                                <p className="text-[10px] text-white/40 mt-1">
-                                  Click to upload
+                              <div className="text-center p-2">
+                                <span className="text-xl sm:text-2xl">📷</span>
+                                <p className="text-[10px] text-white/40 mt-0.5">
+                                  Upload
                                 </p>
                               </div>
                             )}
@@ -737,8 +729,13 @@ export default function MenuAdmin() {
                             onChange={handleFileSelect}
                             className="hidden"
                           />
+                          <p className="text-[11px] text-white/50 sm:hidden">
+                            Tap to upload photo from device
+                          </p>
                         </div>
-                        <div className="flex-1 space-y-2">
+
+                        {/* Input fields */}
+                        <div className="flex-1 space-y-2.5">
                           <input
                             type="text"
                             placeholder="Food item name *"
@@ -746,56 +743,63 @@ export default function MenuAdmin() {
                             onChange={(e) =>
                               setNewItem({ ...newItem, name: e.target.value })
                             }
-                            className="w-full bg-[#0f1f1a] border border-white/10 rounded-lg px-3 py-2 text-white placeholder-white/40 focus:border-amber-500/50 focus:outline-none"
+                            className="w-full bg-[#0f1f1a] border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/40 focus:border-amber-500/50 focus:outline-none"
                           />
-                          <div className="flex gap-2">
-                            <input
-                              type="text"
-                              placeholder="Image path e.g. /menu/01.jpg"
-                              value={newItem.image}
-                              onChange={(e) =>
-                                setNewItem({
-                                  ...newItem,
-                                  image: e.target.value,
-                                  imageFile: null,
-                                  imagePreview: e.target.value,
-                                })
-                              }
-                              className="flex-1 bg-[#0f1f1a] border border-white/10 rounded-lg px-3 py-2 text-white placeholder-white/40 focus:border-amber-500/50 focus:outline-none text-sm"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setImagePickerTarget({ type: "new" })}
-                              className="px-3 py-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 rounded-lg text-amber-200 text-xs font-semibold whitespace-nowrap transition flex items-center gap-1.5"
-                              title="Select from local assets"
-                            >
-                              🖼️ Select Image
-                            </button>
-                            <input
-                              type="number"
-                              placeholder="Price"
-                              value={newItem.price}
-                              onChange={(e) =>
-                                setNewItem({
-                                  ...newItem,
-                                  price: e.target.value,
-                                })
-                              }
-                              className="w-20 bg-[#0f1f1a] border border-white/10 rounded-lg px-3 py-2 text-white placeholder-white/40 focus:border-amber-500/50 focus:outline-none text-sm"
-                            />
+
+                          <div className="flex flex-col sm:flex-row gap-2">
+                            <div className="flex gap-2 flex-1">
+                              <input
+                                type="text"
+                                placeholder="Image path (e.g. /menu/01.jpg)"
+                                value={newItem.image}
+                                onChange={(e) =>
+                                  setNewItem({
+                                    ...newItem,
+                                    image: e.target.value,
+                                    imageFile: null,
+                                    imagePreview: e.target.value,
+                                  })
+                                }
+                                className="flex-1 min-w-0 bg-[#0f1f1a] border border-white/10 rounded-lg px-3 py-2 text-white placeholder-white/40 focus:border-amber-500/50 focus:outline-none text-xs sm:text-sm"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setImagePickerTarget({ type: "new" })}
+                                className="px-3 py-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 rounded-lg text-amber-200 text-xs font-semibold whitespace-nowrap transition flex items-center gap-1 active:scale-95"
+                                title="Select from local assets"
+                              >
+                                🖼️ Select
+                              </button>
+                            </div>
+
+                            <div className="w-full sm:w-28 flex items-center gap-2">
+                              <input
+                                type="number"
+                                placeholder="Price"
+                                value={newItem.price}
+                                onChange={(e) =>
+                                  setNewItem({
+                                    ...newItem,
+                                    price: e.target.value,
+                                  })
+                                }
+                                className="w-full bg-[#0f1f1a] border border-white/10 rounded-lg px-3 py-2 text-white placeholder-white/40 focus:border-amber-500/50 focus:outline-none text-sm"
+                              />
+                              <span className="text-xs text-white/50 sm:hidden">SEK</span>
+                            </div>
                           </div>
-                          <div className="flex gap-2">
+
+                          <div className="flex gap-2 pt-1">
                             <button
                               onClick={() => addItem(cat._id)}
                               disabled={
                                 saving || uploading || !newItem.name.trim()
                               }
-                              className="btn-premium px-4 py-2 rounded-lg disabled:opacity-50 flex items-center gap-2"
+                              className="btn-premium flex-1 sm:flex-initial px-5 py-2 rounded-lg text-xs sm:text-sm disabled:opacity-50 flex items-center justify-center gap-2 font-semibold active:scale-95"
                             >
                               {uploading ? (
                                 <>
-                                  <span className="spinner h-4 w-4" />{" "}
-                                  Uploading...
+                                  <span className="spinner h-3.5 w-3.5" /> Uploading...
                                 </>
                               ) : saving ? (
                                 "Saving..."
@@ -815,7 +819,7 @@ export default function MenuAdmin() {
                                   price: 0,
                                 });
                               }}
-                              className="px-4 py-2 bg-white/10 rounded-lg text-white/60 hover:bg-white/20 transition"
+                              className="px-4 py-2 bg-white/10 rounded-lg text-white/60 hover:bg-white/20 text-xs sm:text-sm transition active:scale-95"
                             >
                               Cancel
                             </button>
@@ -1072,27 +1076,63 @@ export default function MenuAdmin() {
                                 </div>
                               ) : (
                                 <div>
-                                  <p
-                                    className="text-xs font-medium truncate transition-colors duration-200"
-                                    style={{
-                                      color: item.hidden
-                                        ? "rgba(255,255,255,0.25)"
-                                        : "white",
-                                    }}
-                                    title={item.name}
-                                  >
-                                    {item.name}
-                                  </p>
-                                  {item.price > 0 && (
+                                  <div className="min-w-0">
                                     <p
-                                      className="text-red-400 text-[10px] font-bold"
+                                      className="text-xs font-semibold truncate transition-colors duration-200"
                                       style={{
-                                        opacity: item.hidden ? 0.35 : 1,
+                                        color: item.hidden
+                                          ? "rgba(255,255,255,0.25)"
+                                          : "white",
                                       }}
+                                      title={item.name}
                                     >
-                                      +{item.price}KR
+                                      {item.name}
                                     </p>
-                                  )}
+                                    {item.price > 0 && (
+                                      <p
+                                        className="text-red-400 text-[10px] font-bold mt-0.5"
+                                        style={{
+                                          opacity: item.hidden ? 0.35 : 1,
+                                        }}
+                                      >
+                                        +{item.price}KR
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  {/* Mobile-visible direct touch actions */}
+                                  <div className="flex items-center justify-between pt-1.5 mt-1.5 border-t border-white/5 sm:hidden">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        toggleItemVisibility(
+                                          cat._id,
+                                          item._id,
+                                          item.hidden,
+                                        )
+                                      }
+                                      className="p-1.5 rounded-lg active:bg-white/10 text-xs"
+                                      title={item.hidden ? "Show" : "Hide"}
+                                    >
+                                      {item.hidden ? "👁️" : "🚫"}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditingItem(item._id)}
+                                      className="p-1.5 rounded-lg active:bg-white/10 text-xs"
+                                      title="Edit item"
+                                    >
+                                      ✏️
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => deleteItem(cat._id, item._id)}
+                                      className="p-1.5 rounded-lg active:bg-red-500/20 text-red-400 text-xs"
+                                      title="Delete item"
+                                    >
+                                      🗑️
+                                    </button>
+                                  </div>
                                 </div>
                               )}
                             </div>

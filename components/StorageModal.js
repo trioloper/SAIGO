@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { compressFileToDataUrl } from "../lib/clientImageCompress";
 
 export default function StorageModal({ isOpen, onClose, onRefreshMenu }) {
   const [files, setFiles] = useState([]);
@@ -22,7 +23,11 @@ export default function StorageModal({ isOpen, onClose, onRefreshMenu }) {
   const loadStorage = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/storageHandler");
+      // Use timestamp cache buster and no-store to prevent browser cache
+      const res = await fetch(`/api/storageHandler?t=${Date.now()}`, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache, no-store, must-revalidate" },
+      });
       const data = await res.json();
       if (data.success) {
         setFiles(data.files || []);
@@ -49,13 +54,8 @@ export default function StorageModal({ isOpen, onClose, onRefreshMenu }) {
 
     setUploading(true);
     try {
-      const reader = new FileReader();
-      const base64Promise = new Promise((resolve, reject) => {
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-      });
-      reader.readAsDataURL(file);
-      const base64Data = await base64Promise;
+      // Compress in browser: shrinks 5-15MB phone photos to ~100KB, preventing Nginx 413 limits
+      const base64Data = await compressFileToDataUrl(file);
 
       const res = await fetch("/api/uploadImage", {
         method: "POST",
@@ -63,16 +63,27 @@ export default function StorageModal({ isOpen, onClose, onRefreshMenu }) {
         body: JSON.stringify({
           imageData: base64Data,
           fileName: file.name,
-          contentType: file.type,
+          contentType: file.type || "image/jpeg",
         }),
       });
 
-      const data = await res.json();
+      let data;
+      try {
+        data = await res.json();
+      } catch (jsonErr) {
+        if (res.status === 413) {
+          throw new Error("File too large for server proxy. Try a smaller image.");
+        }
+        throw new Error(`Server returned HTTP ${res.status}`);
+      }
+
       if (data.success) {
         showStatus(`Uploaded ${data.fileName || file.name} successfully!`);
+        // Immediately reload storage without needing to close/reopen modal
         await loadStorage();
+        if (onRefreshMenu) onRefreshMenu();
       } else {
-        showStatus("Upload failed: " + data.message, "error");
+        showStatus("Upload failed: " + (data.message || "Unknown error"), "error");
       }
     } catch (err) {
       showStatus("Upload error: " + err.message, "error");
@@ -86,18 +97,24 @@ export default function StorageModal({ isOpen, onClose, onRefreshMenu }) {
     if (!confirm(`Are you sure you want to delete ${fileName} from local storage?`)) return;
 
     try {
-      const res = await fetch(`/api/storageHandler?fileName=${encodeURIComponent(fileName)}`, {
+      // Optimistically remove from view immediately
+      setFiles((prev) => prev.filter((f) => f.name !== fileName));
+
+      const res = await fetch(`/api/storageHandler?fileName=${encodeURIComponent(fileName)}&t=${Date.now()}`, {
         method: "DELETE",
       });
       const data = await res.json();
       if (data.success) {
         showStatus(`Deleted ${fileName}`);
-        setFiles((prev) => prev.filter((f) => f.name !== fileName));
+        await loadStorage();
+        if (onRefreshMenu) onRefreshMenu();
       } else {
         showStatus(data.message || "Delete failed", "error");
+        await loadStorage();
       }
     } catch (err) {
       showStatus("Delete error: " + err.message, "error");
+      await loadStorage();
     }
   };
 
@@ -113,7 +130,7 @@ export default function StorageModal({ isOpen, onClose, onRefreshMenu }) {
     }
 
     try {
-      const res = await fetch("/api/storageHandler", {
+      const res = await fetch(`/api/storageHandler?t=${Date.now()}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -138,14 +155,15 @@ export default function StorageModal({ isOpen, onClose, onRefreshMenu }) {
   const handleLinkLocal = async () => {
     setSyncing(true);
     try {
-      const res = await fetch("/api/storageHandler", {
+      const res = await fetch(`/api/storageHandler?t=${Date.now()}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "link-local" }),
+        body: JSON.stringify({ action: "link-local", force: true }),
       });
       const data = await res.json();
       if (data.success) {
         showStatus(data.message || "Menu items updated to use local assets!");
+        await loadStorage();
         if (onRefreshMenu) onRefreshMenu();
       } else {
         showStatus(data.message || "Sync failed", "error");
@@ -171,26 +189,26 @@ export default function StorageModal({ isOpen, onClose, onRefreshMenu }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-      <div className="bg-[#152b23] border border-white/20 rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-2 sm:p-4">
+      <div className="bg-[#152b23] border border-white/20 rounded-xl sm:rounded-2xl w-full max-w-5xl h-[94vh] sm:h-auto sm:max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
         {/* Modal Header */}
-        <div className="p-4 border-b border-white/10 flex items-center justify-between bg-[#0f1f1a]">
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold text-amber-200">
+        <div className="p-3 sm:p-4 border-b border-white/10 flex items-center justify-between bg-[#0f1f1a]">
+          <div className="min-w-0 pr-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-lg sm:text-xl font-bold text-amber-200">
                 📁 Storage Manager
               </h2>
-              <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                Driver: {driver.toUpperCase()} (public/menu)
+              <span className="text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                Driver: {driver.toUpperCase()}
               </span>
             </div>
-            <p className="text-xs text-white/60 mt-0.5">
-              Manage food image assets directly on your server disk
+            <p className="text-[11px] sm:text-xs text-white/60 mt-0.5 truncate">
+              Manage food images stored directly on your server
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-white/60 hover:text-white hover:bg-white/10 rounded-lg transition text-lg"
+            className="p-2 text-white/60 hover:text-white active:bg-white/10 rounded-lg transition text-lg flex-shrink-0"
           >
             ✕
           </button>
@@ -199,13 +217,13 @@ export default function StorageModal({ isOpen, onClose, onRefreshMenu }) {
         {/* Status Message */}
         {statusMessage.text && (
           <div
-            className={`px-4 py-2 text-xs font-medium flex items-center justify-between ${
+            className={`px-3 sm:px-4 py-2 text-xs font-medium flex items-center justify-between ${
               statusMessage.type === "error"
                 ? "bg-red-500/20 text-red-200 border-b border-red-500/30"
                 : "bg-emerald-500/20 text-emerald-200 border-b border-emerald-500/30"
             }`}
           >
-            <span>{statusMessage.text}</span>
+            <span className="truncate pr-2">{statusMessage.text}</span>
             <button onClick={() => setStatusMessage({ text: "", type: "" })}>
               ✕
             </button>
@@ -213,9 +231,9 @@ export default function StorageModal({ isOpen, onClose, onRefreshMenu }) {
         )}
 
         {/* Toolbar */}
-        <div className="p-4 border-b border-white/10 flex flex-wrap gap-3 items-center justify-between bg-[#13251e]">
+        <div className="p-3 sm:p-4 border-b border-white/10 flex flex-col sm:flex-row gap-2.5 sm:gap-3 sm:items-center justify-between bg-[#13251e]">
           {/* Search */}
-          <div className="flex-1 min-w-[220px]">
+          <div className="w-full sm:flex-1">
             <input
               type="text"
               value={search}
@@ -226,12 +244,22 @@ export default function StorageModal({ isOpen, onClose, onRefreshMenu }) {
           </div>
 
           {/* Action buttons */}
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button
+              onClick={loadStorage}
+              disabled={loading}
+              title="Refresh local storage list"
+              className="px-3 py-2 bg-white/10 hover:bg-white/15 border border-white/15 text-white/90 text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1.5 disabled:opacity-50 active:scale-95"
+            >
+              <span className={loading ? "animate-spin" : ""}>🔄</span>
+              <span className="hidden sm:inline">Refresh</span>
+            </button>
+
             <button
               onClick={handleLinkLocal}
               disabled={syncing}
               title="Fix broken items in database by linking them to local image files"
-              className="px-3.5 py-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 text-blue-200 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 disabled:opacity-50"
+              className="flex-1 sm:flex-initial px-3 py-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 text-blue-200 text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1.5 disabled:opacity-50 active:scale-95"
             >
               {syncing ? (
                 <>
@@ -239,7 +267,7 @@ export default function StorageModal({ isOpen, onClose, onRefreshMenu }) {
                 </>
               ) : (
                 <>
-                  <span>🔄</span> Link Items to Local Assets
+                  <span>🔗</span> Link to Local
                 </>
               )}
             </button>
@@ -247,7 +275,7 @@ export default function StorageModal({ isOpen, onClose, onRefreshMenu }) {
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
-              className="btn-premium px-4 py-2 text-xs font-semibold rounded-lg flex items-center gap-1.5 disabled:opacity-50"
+              className="btn-premium flex-1 sm:flex-initial px-3.5 py-2 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 disabled:opacity-50 active:scale-95"
             >
               {uploading ? (
                 <>
@@ -255,7 +283,7 @@ export default function StorageModal({ isOpen, onClose, onRefreshMenu }) {
                 </>
               ) : (
                 <>
-                  <span>+</span> Upload New Image
+                  <span>+</span> Upload Image
                 </>
               )}
             </button>
@@ -360,7 +388,7 @@ export default function StorageModal({ isOpen, onClose, onRefreshMenu }) {
                           <button
                             onClick={() => copyUrl(file.url)}
                             title="Copy image URL"
-                            className="p-1 hover:bg-white/10 text-white/60 hover:text-white rounded text-xs transition"
+                            className="h-7 w-7 sm:h-8 sm:w-8 flex items-center justify-center bg-white/5 hover:bg-white/10 active:bg-white/20 text-white/70 hover:text-white rounded-lg text-xs transition"
                           >
                             📋
                           </button>
@@ -369,19 +397,26 @@ export default function StorageModal({ isOpen, onClose, onRefreshMenu }) {
                             <button
                               onClick={() => startRename(file)}
                               title="Rename file"
-                              className="p-1 hover:bg-white/10 text-white/60 hover:text-amber-300 rounded text-xs transition"
+                              className="h-7 w-7 sm:h-8 sm:w-8 flex items-center justify-center bg-white/5 hover:bg-white/10 active:bg-white/20 text-white/70 hover:text-amber-300 rounded-lg text-xs transition"
                             >
                               ✏️
                             </button>
 
-                            {!file.isProtected && (
+                            {!file.isProtected ? (
                               <button
                                 onClick={() => handleDelete(file.name)}
                                 title="Delete file"
-                                className="p-1 hover:bg-red-500/20 text-red-400 hover:text-red-300 rounded text-xs transition"
+                                className="h-7 w-7 sm:h-8 sm:w-8 flex items-center justify-center bg-red-500/15 hover:bg-red-500/25 active:bg-red-500/40 text-red-400 hover:text-red-300 rounded-lg text-xs transition"
                               >
                                 🗑️
                               </button>
+                            ) : (
+                              <span
+                                title="Protected system logo"
+                                className="h-7 w-7 sm:h-8 sm:w-8 flex items-center justify-center text-white/25 text-xs select-none"
+                              >
+                                🔒
+                              </span>
                             )}
                           </div>
                         </div>

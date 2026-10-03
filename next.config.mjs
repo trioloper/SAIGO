@@ -37,6 +37,16 @@ const nextConfig = {
       },
     ];
   },
+  async rewrites() {
+    return {
+      fallback: [
+        {
+          source: '/menu/:path*',
+          destination: '/api/serveImage?path=:path*',
+        },
+      ],
+    };
+  },
 };
 
 export default nextConfig;

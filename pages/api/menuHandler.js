@@ -5,6 +5,10 @@ const SERVER =
   'http://localhost:8000';
 
 export default async function handler(req, res) {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+
   const { method, query, body } = req;
   const { categoryId, itemId, action } = query;
 
