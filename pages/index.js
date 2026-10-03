@@ -333,10 +333,10 @@ export default function Home() {
   // ---------- Main page ----------
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#1a3a2e] via-[#1d3f32] to-[#152b23] text-white">
-      <main className="max-w-5xl mx-auto px-4 py-4">
+      <main className="max-w-5xl mx-auto px-3 sm:px-4 py-3 sm:py-4">
         {/* HERO IMAGE */}
         <div className="hero-premium">
-          <div className="w-full h-48 sm:h-56 md:h-64 lg:h-72 relative">
+          <div className="w-full h-40 sm:h-56 md:h-64 lg:h-72 relative">
             <Image
               src="/menu/saigo.jpg"
               alt="Restaurant ambiance"
@@ -349,31 +349,31 @@ export default function Home() {
         </div>
 
         {/* Table # and hint (compact, under hero) */}
-        <div className="mt-4 flex items-center gap-3">
-          <div className="px-4 py-1.5 rounded-full bg-gradient-to-r from-amber-500/20 to-amber-600/10 border border-amber-500/30 shadow-lg shadow-amber-500/10">
-            <span className="font-bold text-amber-200">Bord #{tableNo}</span>
+        <div className="mt-3 sm:mt-4 flex items-center gap-2.5 sm:gap-3">
+          <div className="px-3.5 py-1 sm:px-4 sm:py-1.5 rounded-full bg-gradient-to-r from-amber-500/20 to-amber-600/10 border border-amber-500/30 shadow-lg shadow-amber-500/10">
+            <span className="font-bold text-amber-200 text-xs sm:text-sm">Bord #{tableNo}</span>
           </div>
-          <span className="text-white/70 text-sm font-medium">
+          <span className="text-white/70 text-xs sm:text-sm font-medium">
             Välj dina rätter
           </span>
         </div>
 
         {/* People counters */}
-        <div className="mt-5 premium-card p-5">
-          <div className="grid grid-cols-3 gap-3 sm:gap-4">
+        <div className="mt-4 sm:mt-5 premium-card p-3.5 sm:p-5">
+          <div className="grid grid-cols-3 gap-2 sm:gap-4">
             {/* Adult Dropdown */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] sm:text-[11px] font-bold text-amber-300/90 tracking-wide uppercase">
+            <div className="flex flex-col gap-1 sm:gap-1.5 min-w-0">
+              <label className="text-[9px] sm:text-[11px] font-bold text-amber-300/90 tracking-wide uppercase truncate">
                 Vuxen
               </label>
 
               <select
                 ref={adultRef}
-                className="select-premium w-full text-white rounded-xl p-2.5 text-sm sm:text-base"
+                className="select-premium w-full text-white rounded-xl p-2 sm:p-2.5 text-xs sm:text-base font-medium"
                 value={adult}
                 onChange={(e) => setAdult(Number(e.target.value))}
               >
-                <option value={0}>Select</option>
+                <option value={0}>0</option>
                 {[...Array(10)].map((_, i) => (
                   <option
                     key={i + 1}
@@ -387,16 +387,16 @@ export default function Home() {
             </div>
 
             {/* Barn 7–12 ÅR Dropdown */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] sm:text-[11px] font-bold text-amber-300/90 tracking-wide uppercase">
+            <div className="flex flex-col gap-1 sm:gap-1.5 min-w-0">
+              <label className="text-[9px] sm:text-[11px] font-bold text-amber-300/90 tracking-wide uppercase truncate">
                 Barn 7–12 ÅR
               </label>
               <select
-                className="select-premium w-full text-white rounded-xl p-2.5 text-sm sm:text-base"
+                className="select-premium w-full text-white rounded-xl p-2 sm:p-2.5 text-xs sm:text-base font-medium"
                 value={barn1}
                 onChange={(e) => setBarn1(Number(e.target.value))}
               >
-                <option value={0}>Select</option>
+                <option value={0}>0</option>
                 {[...Array(10)].map((_, i) => (
                   <option
                     key={i + 1}
@@ -410,16 +410,16 @@ export default function Home() {
             </div>
 
             {/* Barn 4–6 ÅR Dropdown */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] sm:text-[11px] font-bold text-amber-300/90 tracking-wide uppercase">
+            <div className="flex flex-col gap-1 sm:gap-1.5 min-w-0">
+              <label className="text-[9px] sm:text-[11px] font-bold text-amber-300/90 tracking-wide uppercase truncate">
                 Barn 3–6 ÅR
               </label>
               <select
-                className="select-premium w-full text-white rounded-xl p-2.5 text-sm sm:text-base"
+                className="select-premium w-full text-white rounded-xl p-2 sm:p-2.5 text-xs sm:text-base font-medium"
                 value={barn2}
                 onChange={(e) => setBarn2(Number(e.target.value))}
               >
-                <option value={0}>Select</option>
+                <option value={0}>0</option>
                 {[...Array(10)].map((_, i) => (
                   <option
                     key={i + 1}

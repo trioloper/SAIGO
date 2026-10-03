@@ -1,0 +1,15 @@
+{
+  "default_branch": "dev",
+  "branches": [
+    "dev",
+    "dev-local-image"
+  ],
+  "parent": {
+    "dev": null,
+    "dev-local-image": "dev"
+  },
+  "order": [
+    "dev",
+    "dev-local-image"
+  ]
+}
