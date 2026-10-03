@@ -498,7 +498,11 @@ export default function Home() {
                 <div className="flex gap-3 overflow-x-auto pb-3 no-scrollbar">
                   {sec.items.map((it) => {
                     const qty = cart[it.id] || 0;
-                    const img = it.image || `/menu/${it.id}.jpg`;
+                    const img =
+                      it.image ||
+                      (it.id !== undefined
+                        ? `/menu/${String(it.id).padStart(2, '0')}.jpg`
+                        : "/menu/saigo.jpg");
                     return (
                       <article
                         key={it.id}
@@ -521,8 +525,9 @@ export default function Home() {
                             placeholder="blur"
                             blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBEQCEAwEPwAB//9k="
                             onError={(e) => {
+                              e.currentTarget.onerror = null;
                               e.currentTarget.srcset = "";
-                              e.currentTarget.src = "/menu/default.jpg";
+                              e.currentTarget.src = "/menu/saigo.jpg";
                             }}
                           />
                         </div>
@@ -684,7 +689,12 @@ export default function Home() {
           >
             <div className="relative w-full aspect-[4/3]">
               <Image
-                src={selectedItem.image || `/menu/${selectedItem.id}.jpg`}
+                src={
+                  selectedItem.image ||
+                  (selectedItem.id !== undefined
+                    ? `/menu/${String(selectedItem.id).padStart(2, '0')}.jpg`
+                    : "/menu/saigo.jpg")
+                }
                 alt={selectedItem.name}
                 fill
                 sizes="(max-width: 640px) 100vw, 512px"

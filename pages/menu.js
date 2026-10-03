@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Head from "next/head";
 import Link from "next/link";
+import StorageModal from "../components/StorageModal";
+import ImagePickerModal from "../components/ImagePickerModal";
 
 export default function MenuAdmin() {
   const [categories, setCategories] = useState([]);
@@ -24,6 +26,30 @@ export default function MenuAdmin() {
   const editFileInputRef = useRef(null);
   const [editImagePreview, setEditImagePreview] = useState("");
   const [editImageFile, setEditImageFile] = useState(null);
+
+  // Storage & Image Picker states
+  const [showStorageModal, setShowStorageModal] = useState(false);
+  const [imagePickerTarget, setImagePickerTarget] = useState(null);
+
+  const handleImagePickerSelect = (url, fileName) => {
+    if (!imagePickerTarget) return;
+
+    if (imagePickerTarget.type === "new") {
+      setNewItem((prev) => ({
+        ...prev,
+        image: url,
+        imagePreview: url,
+        imageFile: null,
+      }));
+    } else if (imagePickerTarget.type === "edit") {
+      const input = document.getElementById(
+        `edit-image-${imagePickerTarget.itemId}`,
+      );
+      if (input) input.value = url;
+      setEditImagePreview(url);
+      setEditImageFile(null);
+    }
+  };
 
   const showMessage = (text, type = "success") => {
     setMessage({ text, type });
@@ -431,6 +457,7 @@ export default function MenuAdmin() {
   }
 
   return (
+    console.log("Rendering MenuAdmin with categories:", categories),
     <>
       <Head>
         <title>Menu Admin | Restaurant</title>
@@ -448,12 +475,20 @@ export default function MenuAdmin() {
                 Manage categories &amp; items
               </p>
             </div>
-            <Link
-              href="/history"
-              className="px-4 py-2 bg-amber-500/20 border border-amber-500/30 rounded-xl text-amber-200 text-sm hover:bg-amber-500/30 transition flex items-center gap-2"
-            >
-              📋 Order History
-            </Link>
+            <div className="flex items-center gap-2.5">
+              <button
+                onClick={() => setShowStorageModal(true)}
+                className="px-4 py-2 bg-emerald-500/20 border border-emerald-500/40 rounded-xl text-emerald-200 text-sm hover:bg-emerald-500/30 transition flex items-center gap-2 font-semibold shadow-sm hover:scale-[1.02]"
+              >
+                📁 Storage
+              </button>
+              <Link
+                href="/history"
+                className="px-4 py-2 bg-amber-500/20 border border-amber-500/30 rounded-xl text-amber-200 text-sm hover:bg-amber-500/30 transition flex items-center gap-2"
+              >
+                📋 Order History
+              </Link>
+            </div>
           </div>
 
           {/* Message */}
@@ -716,18 +751,26 @@ export default function MenuAdmin() {
                           <div className="flex gap-2">
                             <input
                               type="text"
-                              placeholder="Or paste image URL"
+                              placeholder="Image path e.g. /menu/01.jpg"
                               value={newItem.image}
                               onChange={(e) =>
                                 setNewItem({
                                   ...newItem,
                                   image: e.target.value,
                                   imageFile: null,
-                                  imagePreview: "",
+                                  imagePreview: e.target.value,
                                 })
                               }
                               className="flex-1 bg-[#0f1f1a] border border-white/10 rounded-lg px-3 py-2 text-white placeholder-white/40 focus:border-amber-500/50 focus:outline-none text-sm"
                             />
+                            <button
+                              type="button"
+                              onClick={() => setImagePickerTarget({ type: "new" })}
+                              className="px-3 py-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 rounded-lg text-amber-200 text-xs font-semibold whitespace-nowrap transition flex items-center gap-1.5"
+                              title="Select from local assets"
+                            >
+                              🖼️ Select Image
+                            </button>
                             <input
                               type="number"
                               placeholder="Price"
@@ -810,8 +853,10 @@ export default function MenuAdmin() {
                             >
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img
-                                src={item.image || "/menu/default.jpg"}
+                                src={item.image || "/menu/saigo.jpg"}
                                 alt={item.name}
+                                loading="lazy"
+                                decoding="async"
                                 className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                                 style={{
                                   filter: item.hidden
@@ -819,7 +864,8 @@ export default function MenuAdmin() {
                                     : "none",
                                 }}
                                 onError={(e) => {
-                                  e.currentTarget.src = "/menu/default.jpg";
+                                  e.currentTarget.onerror = null;
+                                  e.currentTarget.src = "/menu/saigo.jpg";
                                 }}
                               />
 
@@ -925,22 +971,24 @@ export default function MenuAdmin() {
                               {editingItem === item._id ? (
                                 <div className="space-y-2">
                                   <div
-                                    className="w-full h-16 rounded border border-dashed border-white/20 bg-[#0f1f1a] flex items-center justify-center cursor-pointer hover:border-amber-500/50 transition overflow-hidden"
+                                    className="w-full h-16 rounded border border-dashed border-white/20 bg-[#0f1f1a] flex items-center justify-center cursor-pointer hover:border-amber-500/50 transition overflow-hidden relative group"
                                     onClick={() =>
                                       editFileInputRef.current?.click()
                                     }
+                                    title="Click to upload a new file from device"
                                   >
-                                    {editImagePreview ? (
-                                      <img
-                                        src={editImagePreview}
-                                        alt="Preview"
-                                        className="w-full h-full object-cover"
-                                      />
-                                    ) : (
-                                      <span className="text-xs text-white/40">
-                                        📷 New photo
-                                      </span>
-                                    )}
+                                    <img
+                                      src={editImagePreview || item.image || "/menu/saigo.jpg"}
+                                      alt="Preview"
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        e.currentTarget.onerror = null;
+                                        e.currentTarget.src = "/menu/saigo.jpg";
+                                      }}
+                                    />
+                                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-[10px] text-white font-medium">
+                                      Upload photo
+                                    </div>
                                   </div>
                                   <input
                                     ref={editFileInputRef}
@@ -949,6 +997,18 @@ export default function MenuAdmin() {
                                     onChange={handleEditFileSelect}
                                     className="hidden"
                                   />
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setImagePickerTarget({
+                                        type: "edit",
+                                        itemId: item._id,
+                                      })
+                                    }
+                                    className="w-full py-1.5 px-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 rounded text-amber-200 text-xs font-semibold transition flex items-center justify-center gap-1.5"
+                                  >
+                                    🖼️ Select Local Image
+                                  </button>
                                   <input
                                     type="text"
                                     defaultValue={item.name}
@@ -959,9 +1019,10 @@ export default function MenuAdmin() {
                                   <input
                                     type="text"
                                     defaultValue={item.image}
-                                    placeholder="Image URL"
+                                    placeholder="Image path e.g. /menu/01.jpg"
                                     className="w-full bg-[#0f1f1a] border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none"
                                     id={`edit-image-${item._id}`}
+                                    onChange={(e) => setEditImagePreview(e.target.value)}
                                   />
                                   <input
                                     type="number"
@@ -1054,6 +1115,25 @@ export default function MenuAdmin() {
           </div>
         </div>
       </div>
+
+      {/* Storage Manager Modal */}
+      <StorageModal
+        isOpen={showStorageModal}
+        onClose={() => setShowStorageModal(false)}
+        onRefreshMenu={fetchMenu}
+      />
+
+      {/* Image Picker Modal */}
+      <ImagePickerModal
+        isOpen={!!imagePickerTarget}
+        onClose={() => setImagePickerTarget(null)}
+        onSelect={handleImagePickerSelect}
+        currentImage={
+          imagePickerTarget?.type === "new"
+            ? newItem.image
+            : editImagePreview
+        }
+      />
 
       <style jsx global>{`
         .spinner {
